@@ -14,7 +14,114 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      papers: {
+        Row: {
+          abstract: string | null
+          created_at: string | null
+          doi: string
+          id: string
+          journal: string | null
+          meta: Json | null
+          title: string
+          year: number | null
+        }
+        Insert: {
+          abstract?: string | null
+          created_at?: string | null
+          doi: string
+          id?: string
+          journal?: string | null
+          meta?: Json | null
+          title: string
+          year?: number | null
+        }
+        Update: {
+          abstract?: string | null
+          created_at?: string | null
+          doi?: string
+          id?: string
+          journal?: string | null
+          meta?: Json | null
+          title?: string
+          year?: number | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          handle: string | null
+          id: string
+          image: string | null
+          name: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          handle?: string | null
+          id: string
+          image?: string | null
+          name?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          handle?: string | null
+          id?: string
+          image?: string | null
+          name?: string | null
+        }
+        Relationships: []
+      }
+      user_papers: {
+        Row: {
+          created_at: string | null
+          id: string
+          paper_id: string
+          rating: number | null
+          review: string | null
+          shelf: string
+          updated_at: string | null
+          upvotes: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          paper_id: string
+          rating?: number | null
+          review?: string | null
+          shelf: string
+          updated_at?: string | null
+          upvotes?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          paper_id?: string
+          rating?: number | null
+          review?: string | null
+          shelf?: string
+          updated_at?: string | null
+          upvotes?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_papers_paper_id_fkey"
+            columns: ["paper_id"]
+            isOneToOne: false
+            referencedRelation: "papers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_papers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
