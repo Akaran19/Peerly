@@ -34,15 +34,14 @@ export interface User {
 
 export interface UserPaper {
   id: string;
-  userId: string;
-  paperId: string;
+  user_id: string;
+  paper_id: string;
   shelf: Shelf;
   rating?: number;
   review?: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
   upvotes?: number;
-  helpful?: number;
 }
 
 export interface Activity {

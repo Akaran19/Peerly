@@ -1,34 +1,106 @@
-# Peerly: where peers rate what’s worth reading
+# Peerly: where peers rate what's worth reading
 
-A Goodreads-style tracker for academic papers built with Next.js 14, TypeScript, TailwindCSS, and shadcn/ui.
+A Goodreads-style tracker for academic papers built with Vite, React, TypeScript, TailwindCSS, shadcn/ui, and Supabase.
 
 ## Features
 
-- **DOI Resolution**: Paste DOI links or keywords to find papers
-- **Paper Library**: Organize papers into Want/Reading/Read shelves
+- **Google OAuth Authentication**: Sign in with your Google account
+- **Paper Tracking**: Organize papers into Want/Reading/Read shelves
 - **Rating & Reviews**: Rate papers 1-5 stars and write reviews
-- **Author & Journal Pages**: Browse papers by author or publication
+- **DOI Resolution**: Paste DOI links or keywords to find papers
+- **Real-time Database**: Powered by Supabase with Row-Level Security
 - **Responsive Design**: Beautiful academic-focused UI that works on all devices
 - **Accessibility**: Full keyboard navigation and screen reader support
 
+## Quick Start
+
+### 1. Clone and Install
+```bash
+git clone <repository-url>
+cd peerly
+npm install
+```
+
+### 2. Set up Supabase
+
+1. **Create a Supabase Project**
+   - Go to [supabase.com](https://supabase.com)
+   - Create a new project
+   - Wait for setup to complete
+
+2. **Get your credentials**
+   - Go to Settings > API
+   - Copy your Project URL and anon/public key
+
+3. **Configure Environment**
+   - Create `.env.local` in your project root:
+   ```env
+   VITE_SUPABASE_URL=your-project-url
+   VITE_SUPABASE_ANON_KEY=your-anon-key
+   VITE_SITE_URL=http://localhost:5173
+   ```
+
+4. **Run Database Migration**
+   - The database schema is already created via migration
+   - Tables: `profiles`, `papers`, `user_papers` with proper RLS policies
+
+### 3. Set up Google OAuth
+
+1. **Enable Google Provider**
+   - In Supabase Dashboard → Authentication → Providers
+   - Enable Google OAuth
+   - Add your Google Client ID and Secret
+
+2. **Configure Redirect URLs**
+   - In Authentication → URL Configuration
+   - Site URL: `http://localhost:5173` (or your domain)
+   - Redirect URLs: `http://localhost:5173/` (and your production domain)
+
+3. **Google Cloud Setup**
+   - Go to [Google Cloud Console](https://console.cloud.google.com)
+   - Create OAuth 2.0 credentials
+   - Add authorized origins: `http://localhost:5173`
+   - Add redirect URIs: your Supabase auth callback URL
+
+### 4. Run the App
+```bash
+npm run dev
+```
+
+Visit `http://localhost:5173`
+
 ## Pages & Routing
 
-- `/` - Home page with search and recent papers
+- `/` - Home page with recent/trending papers
+- `/auth` - Authentication page
 - `/paper/[id]-[slug]` - Canonical paper page with full details
 - `/paper/doi/[encoded]` - DOI resolver that redirects to canonical URLs
 - `/author/[id]` - Author profile with their papers
 - `/journal/[id]` - Journal page with recent publications
 - `/u/[handle]` - User profile and library
-- `/signin` - Authentication (UI stub)
+- `/profile` - Current user's profile and library
+
+## Database Schema
+
+### Tables
+- **profiles**: User profiles (synced with auth.users)
+- **papers**: Paper metadata with DOI, title, abstract, etc.
+- **user_papers**: User-paper relationships (shelf, rating, review)
+
+### Row Level Security (RLS)
+- Users can only modify their own data
+- All paper data is publicly readable
+- Profile creation is handled automatically on sign-in
 
 ## Tech Stack
 
-- **Next.js 14** with App Router
+- **Vite + React 18** for fast development and builds
 - **TypeScript** for type safety
 - **TailwindCSS** for styling
 - **shadcn/ui** for UI components
+- **Supabase** for database, auth, and backend
+- **React Router** for client-side routing
 - **Lucide React** for icons
-- **Client-side data layer** with mocked async functions
 
 ## Design System
 
@@ -41,67 +113,44 @@ The app uses a comprehensive design system with:
 - **Dark mode support** throughout
 - **Accessibility-first** focus states and contrast
 
-## Getting Started
-
-1. **Clone the repository**
-```bash
-git clone <repository-url>
-cd peerly
-```
-
-2. **Install dependencies**
-```bash
-npm install
-```
-
-3. **Start development server**
-```bash
-npm run dev
-```
-
-4. **Open in browser**
-Navigate to `http://localhost:3000`
-
-## Data Structure
-
-The app uses JSON files for dummy data:
-
-- `src/data/papers.json` - Paper metadata with DOIs
-- `src/data/authors.json` - Author information
-- `src/data/journals.json` - Journal details
-- `src/data/users.json` - User profiles
-- `src/data/userPapers.json` - User paper relationships
-
 ## Key Components
 
+- **AuthButton** - Google OAuth sign-in/out with user menu
+- **PaperActions** - Combined shelf/rating/review interface
 - **SearchBar** - DOI and keyword search with validation
 - **PaperCard** - Responsive paper display with metadata
 - **RatingStars** - Interactive 5-star rating system
 - **ShelfSelector** - Three-state shelf management
-- **PaperActions** - Combined shelf/rating/review interface
-- **UserLibraryTabs** - Tabbed library organization
 
-## Routing Features
+## Authentication Flow
 
-- **Canonical URLs** with slugs for SEO
-- **DOI resolution** with proper redirects
-- **Slug validation** and correction
-- **404 handling** for missing papers
+1. User clicks "Sign In with Google"
+2. Redirected to Google OAuth
+3. Returns to app with session
+4. Profile automatically created/updated in database
+5. User can now track papers, rate, and review
 
-## Accessibility
+## Development
 
-- **WCAG 2.1 AA** compliance
-- **Keyboard navigation** throughout
-- **Screen reader** optimized
-- **Focus indicators** on all interactive elements
-- **Semantic HTML** structure
+### Adding New Features
+- Database changes: Use Supabase migrations
+- New pages: Add to `src/pages/` and update routing
+- Components: Follow shadcn/ui patterns
+- Styling: Use design system tokens
 
-## Performance
+### Environment Variables
+```env
+VITE_SUPABASE_URL=your-supabase-project-url
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+VITE_SITE_URL=http://localhost:5173
+```
 
-- **Component-based** architecture
-- **Optimized images** with Next.js Image
-- **Code splitting** via dynamic imports
-- **Responsive loading** states
+## Production Deployment
+
+1. Update environment variables for production
+2. Configure production redirect URLs in Supabase
+3. Set up proper domain and HTTPS
+4. Deploy to your preferred platform (Vercel, Netlify, etc.)
 
 ## License
 

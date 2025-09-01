@@ -1,16 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Paper, Author, Journal } from '@/types';
-import { dataClient } from '@/lib/dataClient';
+import { Link } from 'react-router-dom';
+import { Paper } from '@/types';
 import { SearchBar } from '@/components/SearchBar';
 import { PaperCard } from '@/components/PaperCard';
-import { GraduationCap, BookOpen, TrendingUp, Clock, Flame } from 'lucide-react';
+import { AuthButton } from '@/components/AuthButton';
+import { getRecentPapers, getTrendingPapers, searchPapers } from '@/lib/supabaseHelpers';
+import { GraduationCap, TrendingUp, Clock, BookOpen, Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
 
 export default function HomePage() {
   const [papers, setPapers] = useState<Paper[]>([]);
-  const [authors, setAuthors] = useState<Record<string, Author>>({});
-  const [journals, setJournals] = useState<Record<string, Journal>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [searchResults, setSearchResults] = useState<Paper[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
@@ -21,58 +20,14 @@ export default function HomePage() {
   }, [viewMode]);
 
   const loadInitialData = async () => {
+    setIsLoading(true);
     try {
-      // Load recent papers for homepage
-      const recentPapers = await dataClient.keywordSearchPapers('');
-      let sortedPapers;
-      
-      if (viewMode === 'trending') {
-        // For trending, we'll simulate by sorting by a combination of rating and recency
-        const papersWithAggregates = await Promise.all(
-          recentPapers.map(async (paper) => {
-            const aggregates = await dataClient.getAggregatesForPaper(paper.id);
-            return { ...paper, aggregates };
-          })
-        );
-        
-        sortedPapers = papersWithAggregates
-          .sort((a, b) => {
-            const scoreA = (a.aggregates.avgRating * a.aggregates.count) + (a.year || 0) * 0.1;
-            const scoreB = (b.aggregates.avgRating * b.aggregates.count) + (b.year || 0) * 0.1;
-            return scoreB - scoreA;
-          })
-          .slice(0, 9);
-      } else {
-        // Recent papers sorted by year
-        sortedPapers = recentPapers
-          .sort((a, b) => (b.year || 0) - (a.year || 0))
-          .slice(0, 9);
-      }
-
-      // Load authors and journals for the papers
-      const authorIds = [...new Set(sortedPapers.flatMap(p => p.authorIds))] as string[];
-      const journalIds = [...new Set(sortedPapers.map(p => p.journalId).filter(Boolean))] as string[];
-
-      const [authorsData, journalsData] = await Promise.all([
-        Promise.all(authorIds.map(id => dataClient.getAuthor(id))),
-        Promise.all(journalIds.map(id => dataClient.getJournal(id)))
-      ]);
-
-      const authorsMap: Record<string, Author> = {};
-      authorsData.forEach(author => {
-        if (author) authorsMap[author.id] = author;
-      });
-
-      const journalsMap: Record<string, Journal> = {};
-      journalsData.forEach(journal => {
-        if (journal) journalsMap[journal.id] = journal;
-      });
-
-      setPapers(sortedPapers);
-      setAuthors(authorsMap);
-      setJournals(journalsMap);
+      const data = viewMode === 'recent' 
+        ? await getRecentPapers(20) 
+        : await getTrendingPapers(20);
+      setPapers(data);
     } catch (error) {
-      console.error('Error loading initial data:', error);
+      console.error('Error loading papers:', error);
     } finally {
       setIsLoading(false);
     }
@@ -86,7 +41,7 @@ export default function HomePage() {
     }
 
     try {
-      const results = await dataClient.keywordSearchPapers(query);
+      const results = await searchPapers(query);
       setSearchResults(results);
       setHasSearched(true);
     } catch (error) {
@@ -108,9 +63,7 @@ export default function HomePage() {
           <Button variant="outline" size="sm" asChild>
             <Link to="/profile">My Profile</Link>
           </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/signin">Sign In</Link>
-          </Button>
+          <AuthButton />
         </nav>
       </header>
       <main className="page-container">
@@ -248,8 +201,6 @@ export default function HomePage() {
                 <PaperCard
                   key={paper.id}
                   paper={paper}
-                  authors={paper.authorIds.map(id => authors[id]).filter(Boolean)}
-                  journal={paper.journalId ? journals[paper.journalId] : undefined}
                   showAbstract
                 />
               ))}

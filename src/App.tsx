@@ -1,26 +1,21 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import HomePage from "./pages/HomePage";
-import PaperPage from "./pages/PaperPage";
-import DOIResolverPage from "./pages/DOIResolverPage";
-import AuthorPage from "./pages/AuthorPage";
-import JournalPage from "./pages/JournalPage";
-import UserPage from "./pages/UserPage";
-import ProfilePage from "./pages/ProfilePage";
-import SignInPage from "./pages/SignInPage";
-import NotFoundPage from "./pages/NotFoundPage";
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Toaster } from '@/components/ui/toaster';
+import { AuthProvider } from '@/hooks/useAuth';
+import HomePage from '@/pages/HomePage';
+import PaperPage from '@/pages/PaperPage';
+import DOIResolverPage from '@/pages/DOIResolverPage';
+import AuthorPage from '@/pages/AuthorPage';
+import JournalPage from '@/pages/JournalPage';
+import UserPage from '@/pages/UserPage';
+import SignInPage from '@/pages/SignInPage';
+import AuthPage from '@/pages/AuthPage';
+import ProfilePage from '@/pages/ProfilePage';
+import NotFoundPage from '@/pages/NotFoundPage';
 
-const queryClient = new QueryClient();
-
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
+function App() {
+  return (
+    <AuthProvider>
+      <Router>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/paper/:paperIdAndSlug" element={<PaperPage />} />
@@ -28,13 +23,15 @@ const App = () => (
           <Route path="/author/:id" element={<AuthorPage />} />
           <Route path="/journal/:id" element={<JournalPage />} />
           <Route path="/u/:handle" element={<UserPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
           <Route path="/signin" element={<SignInPage />} />
+          <Route path="/auth" element={<AuthPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+        <Toaster />
+      </Router>
+    </AuthProvider>
+  );
+}
 
 export default App;
