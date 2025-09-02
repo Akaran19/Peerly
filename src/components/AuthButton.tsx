@@ -1,12 +1,31 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { LogIn, LogOut, User, Settings } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 export function AuthButton() {
   const { user, loading, signInWithGoogle, signOut } = useAuth();
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const navigate = useNavigate();
+
+  const handleSignIn = () => {
+    navigate('/signin');
+  };
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Sign out error:', error);
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -16,7 +35,11 @@ export function AuthButton() {
 
   if (!user) {
     return (
-      <Button onClick={signInWithGoogle} variant="outline" size="sm">
+      <Button
+        onClick={handleSignIn}
+        variant="outline"
+        size="sm"
+      >
         <LogIn className="w-4 h-4 mr-2" />
         Sign In
       </Button>
@@ -28,9 +51,9 @@ export function AuthButton() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-8 w-8">
-            <AvatarImage 
-              src={user.user_metadata?.avatar_url} 
-              alt={user.user_metadata?.full_name || user.email} 
+            <AvatarImage
+              src={user.user_metadata?.avatar_url}
+              alt={user.user_metadata?.full_name || user.email}
             />
             <AvatarFallback>
               {user.user_metadata?.full_name?.charAt(0) || user.email?.charAt(0) || 'U'}
@@ -61,9 +84,13 @@ export function AuthButton() {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={signOut}>
-          <LogOut className="mr-2 h-4 w-4" />
-          Sign Out
+        <DropdownMenuItem onClick={handleSignOut} disabled={isSigningOut}>
+          {isSigningOut ? (
+            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+          ) : (
+            <LogOut className="mr-2 h-4 w-4" />
+          )}
+          {isSigningOut ? 'Signing out...' : 'Sign Out'}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { Paper, PaperAggregates } from '@/types';
 import { dataClient } from '@/lib/dataClient';
 import { extractPaperId, shouldRedirectForSlug, paperUrl } from '@/lib/routing';
@@ -16,10 +17,10 @@ export default function PaperPage() {
   const params = useParams();
   const navigate = useNavigate();
   const paperIdAndSlug = params.paperIdAndSlug as string;
-  
+
   console.log('PaperPage component rendering for slug:', paperIdAndSlug);
   console.log('Params object:', params);
-  
+
   const [paper, setPaper] = useState<Paper | null>(null);
   const [richMetadata, setRichMetadata] = useState<DisplayPaperMetadata | null>(null);
   const [isLoadingRichData, setIsLoadingRichData] = useState(false);
@@ -43,7 +44,7 @@ export default function PaperPage() {
     setRichMetadata(null);
     setAggregates(null);
     isLoadingRef.current = false;
-    
+
     loadPaperData();
   }, [paperIdAndSlug]);
 
@@ -52,24 +53,24 @@ export default function PaperPage() {
       console.log('Already loading data, skipping...');
       return;
     }
-    
+
     isLoadingRef.current = true;
     console.log('Starting to load paper data...');
-    
+
     try {
       const paperId = extractPaperId(paperIdAndSlug);
       console.log('Loading paper data for slug:', paperIdAndSlug, 'extracted ID:', paperId);
       console.log('Full slug length:', paperIdAndSlug.length);
-      
+
       if (!paperId) {
         console.error('Could not extract paper ID from slug:', paperIdAndSlug);
         setNotFound(true);
         return;
       }
-      
+
       const paperData = await dataClient.getPaperById(paperId);
       console.log('Fetched paper data:', paperData);
-      
+
       if (!paperData || !paperData.id) {
         console.log('Paper not found or invalid data for ID:', paperId);
         setNotFound(true);
@@ -93,8 +94,8 @@ export default function PaperPage() {
 
       // Fetch rich metadata from multiple APIs for display (only if not already stored)
       let richMetadata = null;
-            const needsRichData = !paperData.abstract;
-      
+      const needsRichData = !paperData.abstract;
+
       if (needsRichData) {
         setIsLoadingRichData(true);
         try {
@@ -103,7 +104,7 @@ export default function PaperPage() {
           if (multiApiData && multiApiData.title) {
             richMetadata = extractPaperMetadata(multiApiData);
             console.log('Rich metadata extracted:', richMetadata);
-            
+
             // Update the database with the fresh metadata
             await dataClient.lookupPaperByDOI(paperData.doi); // This will trigger the update logic
           }
@@ -138,11 +139,11 @@ export default function PaperPage() {
       console.log('Setting paper data:', paperData);
       console.log('Setting rich metadata:', richMetadata);
       console.log('Setting aggregates:', aggregatesData);
-      
+
       setPaper(paperData);
       setRichMetadata(richMetadata);
       setAggregates(aggregatesData);
-      
+
       console.log('Data loading completed successfully');
     } catch (error) {
       console.error('Error loading paper:', error);
@@ -164,7 +165,7 @@ export default function PaperPage() {
 
   const handleRefreshMetadata = async () => {
     if (!paper) return;
-    
+
     setIsRefreshing(true);
     try {
       console.log('Refreshing metadata from multiple APIs for DOI:', paper.doi);
@@ -172,10 +173,10 @@ export default function PaperPage() {
       if (multiApiData && multiApiData.title) {
         const freshMetadata = extractPaperMetadata(multiApiData);
         setRichMetadata(freshMetadata);
-        
+
         // Update the database with fresh data
         await dataClient.lookupPaperByDOI(paper.doi);
-        
+
         console.log('Metadata refreshed successfully');
       } else {
         console.warn('No valid data returned from APIs for refresh');
@@ -189,7 +190,7 @@ export default function PaperPage() {
   };
 
   console.log('PaperPage render - isLoading:', isLoading, 'notFound:', notFound, 'paper:', paper);
-  
+
   if (isLoading) {
     return (
       <div className="page-wrapper">
@@ -234,12 +235,46 @@ export default function PaperPage() {
   }
 
   return (
-    <div className="page-wrapper">
-      <Header />
-      <main className="page-container">
+    <>
+      <Helmet>
+        <title>{paper.title} | Peerly</title>
+        <meta name="description" content={`${paper.title} - ${richMetadata?.abstract?.substring(0, 160) || paper.abstract?.substring(0, 160) || 'Academic paper review and rating'}`} />
+        <meta name="keywords" content={`academic paper, research, ${paper.doi}, ${richMetadata?.authors?.join(', ') || paper.authors?.join(', ') || ''}`} />
+
+        {/* Canonical URL */}
+        <link rel="canonical" href={`https://peerly.app${paperUrl(paper)}`} />
+
+        {/* Open Graph */}
+        <meta property="og:title" content={`${paper.title} | Peerly`} />
+        <meta property="og:description" content={`${paper.title} - ${richMetadata?.abstract?.substring(0, 160) || paper.abstract?.substring(0, 160) || 'Academic paper review and rating'}`} />
+        <meta property="og:type" content="article" />
+        <meta property="og:url" content={`https://peerly.app${paperUrl(paper)}`} />
+        <meta property="og:image" content="https://peerly.app/og-image.svg" />
+
+        {/* Twitter */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={`${paper.title} | Peerly`} />
+        <meta name="twitter:description" content={`${paper.title} - ${richMetadata?.abstract?.substring(0, 160) || paper.abstract?.substring(0, 160) || 'Academic paper review and rating'}`} />
+        <meta name="twitter:image" content="https://peerly.app/og-image.svg" />
+
+        {/* Article specific meta tags */}
+        {richMetadata?.authors && (
+          <meta property="article:author" content={richMetadata.authors.join(', ')} />
+        )}
+        {richMetadata?.publishedDate && (
+          <meta property="article:published_time" content={richMetadata.publishedDate} />
+        )}
+        {richMetadata?.journal && (
+          <meta property="article:section" content={richMetadata.journal} />
+        )}
+      </Helmet>
+
+      <div className="page-wrapper">
+        <Header />
+        <main className="page-container">
         {/* Navigation */}
         <div className="mb-6">
-          <Link 
+          <Link
             to="/"
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
           >
@@ -252,18 +287,18 @@ export default function PaperPage() {
           <div className="lg:col-span-2 space-y-6">
             {/* Title and Metadata */}
             <div className="space-y-4">
-              <div className="flex items-start justify-between gap-4">
-                <h1 className="text-3xl md:text-4xl font-bold leading-tight">
+              <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-4">
+                <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold leading-tight">
                   {paper.title}
                 </h1>
                 <button
                   onClick={handleRefreshMetadata}
                   disabled={isRefreshing}
-                  className="flex items-center gap-2 px-3 py-2 text-sm bg-secondary hover:bg-secondary/80 disabled:opacity-50 rounded-md transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 text-sm bg-secondary hover:bg-secondary/80 disabled:opacity-50 rounded-md transition-colors self-start sm:self-auto"
                   title="Refresh metadata from multiple APIs"
                 >
                   <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                  {isRefreshing ? 'Refreshing...' : 'Refresh'}
+                  <span className="hidden sm:inline">{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
                 </button>
               </div>
 
@@ -422,14 +457,24 @@ export default function PaperPage() {
           </div>
 
           {/* Sidebar Actions */}
-          <div className="lg:sticky lg:top-6">
-            <PaperActions 
-              paperId={paper.id} 
+          <div className="lg:static lg:bottom-auto lg:left-auto lg:right-auto z-50 bg-background/95 backdrop-blur-sm border-t lg:border-t-0 p-4 lg:p-0 lg:bg-transparent lg:backdrop-blur-none lg:border-0">
+            <PaperActions
+              paperId={paper.id}
+              paper={{
+                doi: paper.doi,
+                title: paper.title,
+                authors: richMetadata?.authors || paper.authors || [],
+                year: richMetadata?.year || paper.year,
+                journal: richMetadata?.journal || paper.journal,
+                conference: richMetadata?.conference || paper.conference,
+                publisher: richMetadata?.publisher || paper.publisher
+              }}
               onUpdate={handlePaperUpdate}
             />
           </div>
         </div>
       </main>
     </div>
+    </>
   );
 }

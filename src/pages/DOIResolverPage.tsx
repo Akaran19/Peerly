@@ -18,17 +18,9 @@ export default function DOIResolverPage() {
 
   useEffect(() => {
     if (!authLoading) {
-      if (!user) {
-        // User not authenticated, redirect to sign in
-        setError('You must be signed in to add papers to your library.');
-        setTimeout(() => {
-          navigate('/signin', { replace: true });
-        }, 3000);
-        return;
-      }
       resolveDOI();
     }
-  }, [encodedDOI, user, authLoading]);
+  }, [encodedDOI, authLoading]);
 
   const resolveDOI = async () => {
     try {

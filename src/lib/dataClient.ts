@@ -4,6 +4,14 @@ import { Paper, Author, Journal, User, UserPaper, Shelf, PaperAggregates } from 
 import { normalizeDOI } from './doi';
 import { supabase } from '@/integrations/supabase/client';
 import { getPaperByDOI, multiApiToPaper } from '@/lib/crossref';
+import { GuestStorage } from './guestStorage';
+
+// Global flag to track guest mode (will be set by auth context)
+let isGuestMode = false;
+
+export function setGuestMode(guest: boolean) {
+  isGuestMode = guest;
+}
 
 // Helper function to convert database row (snake_case) to TypeScript interface (camelCase)
 export function mapDatabasePaperToPaper(dbPaper: any): Paper {
@@ -146,15 +154,6 @@ export const dataClient = {
         return existingPaper;
       }
 
-      // Check if user is authenticated before trying to insert
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      console.log('Current user:', user, 'Auth error:', authError);
-      
-      if (authError || !user) {
-        console.error('User not authenticated, cannot insert paper');
-        throw new Error('You must be logged in to add papers to the database');
-      }
-
       // If not found, fetch from multiple APIs
       console.log(`Fetching paper ${normalizedDOI} from multiple APIs...`);
       
@@ -168,9 +167,23 @@ export const dataClient = {
         return null;
       }
 
-      // Convert and insert to Supabase with all available metadata
+      // Convert to paper format
       const paperData = multiApiToPaper(multiApiPaper);
       console.log('Converted paper data:', paperData);
+
+      // Check if user is authenticated before trying to insert
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      console.log('Current user:', user, 'Auth error:', authError);
+      
+      if (authError || !user) {
+        console.log('User not authenticated, returning paper data without inserting to database');
+        // Return the paper data directly without inserting to database
+        // Generate a temporary ID for the paper
+        return {
+          ...paperData,
+          id: `guest-${normalizedDOI.replace(/[^a-zA-Z0-9]/g, '-')}`
+        };
+      }
 
       // Try insert first, if it fails due to duplicate, try update
       try {
@@ -318,6 +331,13 @@ export const dataClient = {
   },
 
   async listUserPapers(userId: string, shelf?: Shelf): Promise<UserPaper[]> {
+    if (isGuestMode) {
+      if (shelf) {
+        return GuestStorage.getUserPapersByShelf(shelf);
+      }
+      return GuestStorage.getUserPapers();
+    }
+
     try {
       let query = supabase
         .from('user_papers')
@@ -343,6 +363,14 @@ export const dataClient = {
   },
 
   async upsertUserPaper(input: Partial<UserPaper> & { userId: string; paperId: string }): Promise<UserPaper> {
+    if (isGuestMode) {
+      return GuestStorage.upsertUserPaper(input.paperId, {
+        shelf: input.shelf,
+        rating: input.rating,
+        review: input.review
+      });
+    }
+
     try {
       const { data, error } = await supabase
         .from('user_papers')
@@ -474,6 +502,10 @@ export const dataClient = {
   },
 
   async getCurrentUserPaper(paperId: string): Promise<UserPaper | null> {
+    if (isGuestMode) {
+      return GuestStorage.getUserPaper(paperId);
+    }
+
     try {
       const userId = await this.getCurrentUserId();
       if (!userId) return null;
@@ -497,6 +529,10 @@ export const dataClient = {
   },
 
   async getCurrentUserId(): Promise<string | null> {
+    if (isGuestMode) {
+      return 'guest-user';
+    }
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       return user?.id ?? null;

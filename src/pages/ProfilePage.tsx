@@ -1,13 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { User, UserPaper, Shelf } from '@/types';
 import { dataClient } from '@/lib/dataClient';
 import { UserLibraryTabs } from '@/components/UserLibraryTabs';
-import { User as UserIcon, Settings, Calendar, BookOpen, Star, MessageSquare, Edit3 } from 'lucide-react';
+import { User as UserIcon, Settings, Calendar, BookOpen, Star, MessageSquare, Edit3, Check, X, Upload, Camera } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
@@ -25,6 +27,15 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [memberSince, setMemberSince] = useState<string>('2023');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    image: ''
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!authLoading) {
@@ -139,11 +150,132 @@ export default function ProfilePage() {
         totalReviews,
         readThisYear
       });
+
+      // Update edit form with current user data
+      setEditForm({
+        name: userData.name,
+        image: userData.image || ''
+      });
     } catch (error) {
       console.error('Error loading user profile:', error);
       setError('An unexpected error occurred. Please try refreshing the page.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleEditProfile = () => {
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    // Reset form to current user data
+    if (user) {
+      setEditForm({
+        name: user.name,
+        image: user.image || ''
+      });
+    }
+    setSelectedImageFile(null);
+    setImagePreview(null);
+  };
+
+  const handleImageFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setError('Please select a valid image file.');
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Image file size must be less than 5MB.');
+        return;
+      }
+
+      setSelectedImageFile(file);
+      setError(null);
+
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadImageToSupabase = async (file: File): Promise<string | null> => {
+    if (!authUser) return null;
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${authUser.id}-${Date.now()}.${fileExt}`;
+    const filePath = `profile-images/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, file);
+
+    if (uploadError) {
+      console.error('Error uploading image:', uploadError);
+      throw new Error('Failed to upload image');
+    }
+
+    const { data } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(filePath);
+
+    return data.publicUrl;
+  };
+
+  const handleSaveProfile = async () => {
+    if (!authUser || !user) return;
+
+    setIsSaving(true);
+    try {
+      let imageUrl = editForm.image;
+
+      // Upload new image if selected
+      if (selectedImageFile) {
+        const uploadedUrl = await uploadImageToSupabase(selectedImageFile);
+        if (uploadedUrl) {
+          imageUrl = uploadedUrl;
+        }
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          name: editForm.name.trim(),
+          image: imageUrl.trim() || null
+        })
+        .eq('id', authUser.id);
+
+      if (error) {
+        console.error('Error updating profile:', error);
+        setError('Failed to update profile. Please try again.');
+        return;
+      }
+
+      // Update local state
+      setUser({
+        ...user,
+        name: editForm.name.trim(),
+        image: imageUrl.trim() || null
+      });
+
+      setIsEditing(false);
+      setSelectedImageFile(null);
+      setImagePreview(null);
+      setError(null);
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -205,7 +337,7 @@ export default function ProfilePage() {
             <p className="text-muted-foreground mb-8">
               You need to be signed in to view your profile.
             </p>
-            <Link to="/auth" className="text-primary hover:underline">
+            <Link to="/signin" className="text-primary hover:underline">
               ← Go to Sign In
             </Link>
           </div>
@@ -221,38 +353,130 @@ export default function ProfilePage() {
 
         <div className="space-y-8">
           {/* Profile Header */}
-          <div className="flex items-start gap-6">
-            <Avatar className="w-24 h-24">
+          <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-6">
+            <Avatar className="w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0">
               <AvatarImage src={user.image} alt={user.name} />
-              <AvatarFallback className="text-xl bg-primary/10">
+              <AvatarFallback className="text-lg sm:text-xl bg-primary/10">
                 {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
               </AvatarFallback>
             </Avatar>
             
-            <div className="flex-1">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h1 className="text-3xl md:text-4xl font-bold mb-2">
-                    {user.name}
-                  </h1>
-                  <p className="text-lg text-muted-foreground mb-4">
-                    @{user.handle}
-                  </p>
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  {isEditing ? (
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="name">Name</Label>
+                        <Input
+                          id="name"
+                          value={editForm.name}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                          placeholder="Your full name"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label>Profile Picture</Label>
+                        <div className="mt-2 flex items-center gap-4">
+                          <Avatar className="w-16 h-16">
+                            <AvatarImage src={imagePreview || editForm.image || user.image} alt={user.name} />
+                            <AvatarFallback className="text-lg bg-primary/10">
+                              {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex flex-col gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => fileInputRef.current?.click()}
+                              className="gap-2"
+                            >
+                              <Camera className="w-4 h-4" />
+                              {selectedImageFile ? 'Change Photo' : 'Upload Photo'}
+                            </Button>
+                            <input
+                              ref={fileInputRef}
+                              type="file"
+                              accept="image/*"
+                              onChange={handleImageFileSelect}
+                              className="hidden"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              JPG, PNG or GIF. Max 5MB.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={handleSaveProfile}
+                          disabled={isSaving || !editForm.name.trim()}
+                          size="sm"
+                          className="gap-2"
+                        >
+                          {isSaving ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <Check className="w-4 h-4" />
+                              Save
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          onClick={handleCancelEdit}
+                          variant="outline"
+                          size="sm"
+                          disabled={isSaving}
+                          className="gap-2"
+                        >
+                          <X className="w-4 h-4" />
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">
+                        {user.name}
+                      </h1>
+                      <p className="text-base sm:text-lg text-muted-foreground mb-4">
+                        @{user.handle}
+                      </p>
+                    </>
+                  )}
                 </div>
                 
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Edit3 className="w-4 h-4" />
-                  Edit Profile
-                </Button>
+                {!isEditing && (
+                  <div className="flex-shrink-0">
+                    <Button
+                      onClick={handleEditProfile}
+                      variant="outline"
+                      size="sm"
+                      className="gap-2 w-full sm:w-auto"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                      Edit Profile
+                    </Button>
+                  </div>
+                )}
               </div>
               
-              <div className="flex flex-wrap items-center gap-4 mb-4">
-                <Badge variant="secondary">
+              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-4">
+                <Badge variant="secondary" className="w-fit">
                   <Calendar className="w-3 h-3 mr-1" />
                   Member since {memberSince}
                 </Badge>
-                <Link to="/settings" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                  <Settings className="w-4 h-4 inline mr-1" />
+                <Link 
+                  to="/settings" 
+                  className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 w-fit"
+                >
+                  <Settings className="w-4 h-4" />
                   Settings
                 </Link>
               </div>

@@ -3,7 +3,11 @@ import { Shelf, UserPaper, Paper } from '@/types';
 import { dataClient } from '@/lib/dataClient';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PaperCard } from './PaperCard';
-import { BookOpen, Eye, CheckCircle2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { BookOpen, Eye, CheckCircle2, Plus, Sparkles } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { GuestStorage } from '@/lib/guestStorage';
+import { toast } from '@/hooks/use-toast';
 
 interface UserLibraryTabsProps {
   userId: string;
@@ -11,12 +15,13 @@ interface UserLibraryTabsProps {
 }
 
 const shelfConfig = {
-  WANT: { label: 'Want to Read', icon: Eye },
-  READING: { label: 'Reading', icon: BookOpen },
-  READ: { label: 'Read', icon: CheckCircle2 }
+  WANT: { label: 'Want to Read', icon: Eye, color: 'text-blue-600', bgColor: 'bg-blue-50', borderColor: 'border-blue-200' },
+  READING: { label: 'Reading', icon: BookOpen, color: 'text-orange-600', bgColor: 'bg-orange-50', borderColor: 'border-orange-200' },
+  READ: { label: 'Read', icon: CheckCircle2, color: 'text-green-600', bgColor: 'bg-green-50', borderColor: 'border-green-200' }
 } as const;
 
 export function UserLibraryTabs({ userId, userPapers: passedUserPapers }: UserLibraryTabsProps) {
+  const { isGuest } = useAuth();
   const [userPapers, setUserPapers] = useState<Record<Shelf, UserPaper[]>>({
     WANT: [],
     READING: [],
@@ -25,6 +30,27 @@ export function UserLibraryTabs({ userId, userPapers: passedUserPapers }: UserLi
   const [papers, setPapers] = useState<Record<string, Paper>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Shelf>('WANT');
+
+  const addSamplePapers = async () => {
+    if (!isGuest) return;
+
+    try {
+      GuestStorage.addSamplePapers();
+      toast({
+        title: "Sample papers added!",
+        description: "We've added some interesting papers to get you started."
+      });
+      // Reload the library to show the new papers
+      await loadUserLibraryFromData(GuestStorage.getUserPapers());
+    } catch (error) {
+      console.error('Error adding sample papers:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add sample papers. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
 
   useEffect(() => {
     if (passedUserPapers) {
@@ -150,12 +176,12 @@ export function UserLibraryTabs({ userId, userPapers: passedUserPapers }: UserLi
               <TabsTrigger 
                 key={shelf} 
                 value={shelf}
-                className="flex items-center gap-2"
+                className={`flex items-center gap-2 data-[state=active]:${config.color} data-[state=active]:${config.bgColor} data-[state=active]:${config.borderColor} hover:${config.bgColor} transition-colors`}
               >
-                <Icon className="w-4 h-4" />
-                <span className="hidden sm:inline">{config.label}</span>
-                <span className="sm:hidden">{shelf.toLowerCase()}</span>
-                <span className="text-xs bg-muted px-1.5 py-0.5 rounded-full">
+                <Icon className={`w-4 h-4 ${activeTab === shelf ? config.color : 'text-muted-foreground'}`} />
+                <span className={`hidden sm:inline ${activeTab === shelf ? config.color : ''}`}>{config.label}</span>
+                <span className={`sm:hidden ${activeTab === shelf ? config.color : ''}`}>{shelf.toLowerCase()}</span>
+                <span className={`text-xs px-1.5 py-0.5 rounded-full ${activeTab === shelf ? `${config.bgColor} ${config.color}` : 'bg-muted'}`}>
                   {count}
                 </span>
               </TabsTrigger>
@@ -167,11 +193,45 @@ export function UserLibraryTabs({ userId, userPapers: passedUserPapers }: UserLi
       {(Object.keys(shelfConfig) as Shelf[]).map((shelf) => (
         <TabsContent key={shelf} value={shelf} className="mt-6">
           {userPapers[shelf].length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-muted-foreground">
-                <p className="text-lg mb-2">No papers in {shelfConfig[shelf].label.toLowerCase()} yet</p>
-                <p className="text-sm">Start building your academic library!</p>
+            <div className="text-center py-12 space-y-6">
+              <div className="space-y-3">
+                {(() => {
+                  const Icon = shelfConfig[shelf].icon;
+                  return <Icon className={`w-12 h-12 mx-auto ${shelfConfig[shelf].color}`} />;
+                })()}
+                <div className="text-muted-foreground">
+                  <p className="text-lg mb-2">No papers in {shelfConfig[shelf].label.toLowerCase()} yet</p>
+                  <p className="text-sm">
+                    {isGuest 
+                      ? "Start building your academic library by adding papers from the search above, or try our sample collection!"
+                      : "Start building your academic library by searching for papers above!"
+                    }
+                  </p>
+                </div>
               </div>
+              
+              {isGuest && (
+                <div className="space-y-4">
+                  <Button onClick={addSamplePapers} className="gap-2">
+                    <Sparkles className="w-4 h-4" />
+                    Add Sample Papers
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Try Peerly with some interesting papers to get started
+                  </p>
+                </div>
+              )}
+              
+              {!isGuest && (
+                <div className="space-y-4">
+                  <Button variant="outline" asChild className="gap-2">
+                    <a href="/">
+                      <Plus className="w-4 h-4" />
+                      Browse Papers
+                    </a>
+                  </Button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

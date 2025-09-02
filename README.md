@@ -84,7 +84,7 @@ App will be available at: `http://localhost:5173`
 - `/author/[id]` — Author profile
 - `/journal/[id]` — Journal profile
 - `/u/[handle]` — User library
-- `/auth` — Auth callback
+- `/auth` — OAuth callback handler
 - `/profile` — Current user's profile
 
 ## 🛠️ Tech Stack

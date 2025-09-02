@@ -12,9 +12,8 @@ export const paperUrl = (paper: { id: string; title: string }): string => {
   return `/paper/${paper.id}-${slugify(paper.title)}`;
 };
 
-export const authorUrl = (authorId: string): string => `/author/${authorId}`;
-export const journalUrl = (journalId: string): string => `/journal/${journalId}`;
-export const userUrl = (handle: string): string => `/u/${handle}`;
+export const paperDoiUrl = (doi: string): string => `/paper/doi/${encodeURIComponent(doi)}`;
+export const paperPmidUrl = (pmid: string): string => `/paper/pmid/${encodeURIComponent(pmid)}`;
 
 // Extract paper ID from slug
 export const extractPaperId = (paperIdAndSlug: string): string => {
