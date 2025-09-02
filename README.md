@@ -1,157 +1,128 @@
-# Peerly: where peers rate what's worth reading
+# 📚 Peerly — where peers rate what's worth reading
 
-A Goodreads-style tracker for academic papers built with Vite, React, TypeScript, TailwindCSS, shadcn/ui, and Supabase.
+A Goodreads-style tracker for academic papers. Paste a DOI, fetch metadata, add it to your shelves (Want / Reading / Read), and share ratings & reviews with others.
 
-## Features
+👉 **Live now: https://paperlog-shelf.vercel.app/**
 
-- **Google OAuth Authentication**: Sign in with your Google account
-- **Paper Tracking**: Organize papers into Want/Reading/Read shelves
-- **Rating & Reviews**: Rate papers 1-5 stars and write reviews
-- **DOI Resolution**: Paste DOI links or keywords to find papers
-- **Real-time Database**: Powered by Supabase with Row-Level Security
-- **Responsive Design**: Beautiful academic-focused UI that works on all devices
-- **Accessibility**: Full keyboard navigation and screen reader support
+## ✨ Features
 
-## Quick Start
+🔑 **Google OAuth** — Sign in securely with your Google account
 
-### 1. Clone and Install
+📂 **Shelves** — Organize papers into Want, Reading, and Read
+
+⭐ **Ratings & Reviews** — Rate from 1–5 stars and leave reviews
+
+🔎 **DOI Resolution** — Paste DOI or keywords to fetch papers
+
+⚡ **Supabase Backend** — Real-time database with Row-Level Security
+
+📱 **Responsive UI** — Clean academic-focused design across devices
+
+♿ **Accessibility** — Full keyboard navigation & screen reader support
+
+🌙 **Dark Mode** — Consistent academic-friendly palette
+
+## 🚀 Quick Start
+
+### 1. Clone & Install
 ```bash
 git clone <repository-url>
 cd peerly
 npm install
 ```
 
-### 2. Set up Supabase
+### 2. Configure Supabase
 
-1. **Create a Supabase Project**
-   - Go to [supabase.com](https://supabase.com)
-   - Create a new project
-   - Wait for setup to complete
+**Create a Supabase project**
 
-2. **Get your credentials**
-   - Go to Settings > API
-   - Copy your Project URL and anon/public key
+- Copy Project URL and anon key from Settings → API
 
-3. **Configure Environment**
-   - Create `.env.local` in your project root:
-   ```env
-   VITE_SUPABASE_URL=your-project-url
-   VITE_SUPABASE_ANON_KEY=your-anon-key
-   VITE_SITE_URL=http://localhost:5173
-   ```
+**Create `.env.local` in the project root:**
+```env
+VITE_SUPABASE_URL=your-project-url
+VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_SITE_URL=http://localhost:5173
+```
 
-4. **Run Database Migration**
-   - The database schema is already created via migration
-   - Tables: `profiles`, `papers`, `user_papers` with proper RLS policies
+### 3. Database Schema
 
-### 3. Set up Google OAuth
+Run the provided migration in Supabase SQL Editor.
 
-1. **Enable Google Provider**
-   - In Supabase Dashboard → Authentication → Providers
-   - Enable Google OAuth
-   - Add your Google Client ID and Secret
+**Tables:**
+- `profiles` — user profiles (linked to auth.users)
+- `papers` — paper metadata (DOI, title, abstract, etc.)
+- `user_papers` — relationships (shelf, rating, review)
 
-2. **Configure Redirect URLs**
-   - In Authentication → URL Configuration
-   - Site URL: `http://localhost:5173` (or your domain)
-   - Redirect URLs: `http://localhost:5173/` (and your production domain)
+**Row-Level Security (RLS) is enabled:**
+- Users can modify only their own shelves/reviews
+- Paper metadata is publicly readable
 
-3. **Google Cloud Setup**
-   - Go to [Google Cloud Console](https://console.cloud.google.com)
-   - Create OAuth 2.0 credentials
-   - Add authorized origins: `http://localhost:5173`
-   - Add redirect URIs: your Supabase auth callback URL
+### 4. Enable Google OAuth
 
-### 4. Run the App
+In Supabase Dashboard → Authentication → Providers, enable Google
+
+Add Client ID and Secret from Google Cloud Console
+
+In Authentication → URL Configuration, set:
+- Site URL: `http://localhost:5173` (or your deployed domain)
+- Redirect URLs: `http://localhost:5173/` and your production domain
+
+## 🖥️ Development
+
+### Run locally
 ```bash
 npm run dev
 ```
 
-Visit `http://localhost:5173`
+App will be available at: `http://localhost:5173`
 
-## Pages & Routing
+### Pages & Routing
 
-- `/` - Home page with recent/trending papers
-- `/auth` - Authentication page
-- `/paper/[id]-[slug]` - Canonical paper page with full details
-- `/paper/doi/[encoded]` - DOI resolver that redirects to canonical URLs
-- `/author/[id]` - Author profile with their papers
-- `/journal/[id]` - Journal page with recent publications
-- `/u/[handle]` - User profile and library
-- `/profile` - Current user's profile and library
+- `/` — Home (search papers by DOI or keyword)
+- `/paper/[id]-[slug]` — Canonical paper detail
+- `/paper/doi/[encoded]` — DOI resolver → redirects to canonical
+- `/author/[id]` — Author profile
+- `/journal/[id]` — Journal profile
+- `/u/[handle]` — User library
+- `/auth` — Auth callback
+- `/profile` — Current user's profile
 
-## Database Schema
+## 🛠️ Tech Stack
 
-### Tables
-- **profiles**: User profiles (synced with auth.users)
-- **papers**: Paper metadata with DOI, title, abstract, etc.
-- **user_papers**: User-paper relationships (shelf, rating, review)
+**Frontend:** React + Vite + TypeScript
 
-### Row Level Security (RLS)
-- Users can only modify their own data
-- All paper data is publicly readable
-- Profile creation is handled automatically on sign-in
+**Styling:** TailwindCSS + shadcn/ui + Lucide icons
 
-## Tech Stack
+**Auth & DB:** Supabase (Postgres + Auth + RLS)
 
-- **Vite + React 18** for fast development and builds
-- **TypeScript** for type safety
-- **TailwindCSS** for styling
-- **shadcn/ui** for UI components
-- **Supabase** for database, auth, and backend
-- **React Router** for client-side routing
-- **Lucide React** for icons
+**Routing:** React Router
 
-## Design System
+**Design:** Academic-inspired indigo/slate theme with consistent typography & spacing
 
-The app uses a comprehensive design system with:
+## 🎨 Design System
 
-- **Academic color palette** (slate/indigo theme)
-- **Semantic color tokens** defined in CSS variables
-- **Typography scale** optimized for reading
-- **Consistent spacing** and border radius
-- **Dark mode support** throughout
-- **Accessibility-first** focus states and contrast
+- Neutral slate/zinc base with indigo accent
+- Typography scale optimized for long-form reading
+- Semantic tokens in CSS variables
+- Rounded 2xl radius for cards/buttons
+- Dark mode support out of the box
+- Accessibility-first: visible focus rings, high contrast
 
-## Key Components
+## 🔒 Authentication Flow
 
-- **AuthButton** - Google OAuth sign-in/out with user menu
-- **PaperActions** - Combined shelf/rating/review interface
-- **SearchBar** - DOI and keyword search with validation
-- **PaperCard** - Responsive paper display with metadata
-- **RatingStars** - Interactive 5-star rating system
-- **ShelfSelector** - Three-state shelf management
+1. User clicks "Sign in with Google"
+2. Redirects to Google OAuth → returns with session
+3. Profile auto-created in `profiles` table
+4. User can now track, rate, and review papers
 
-## Authentication Flow
+## 🌍 Production Deployment
 
-1. User clicks "Sign In with Google"
-2. Redirected to Google OAuth
-3. Returns to app with session
-4. Profile automatically created/updated in database
-5. User can now track papers, rate, and review
+Update env vars in your host (Vercel/Netlify)
 
-## Development
+Add deployed domain to Supabase → Auth → URL Configuration
 
-### Adding New Features
-- Database changes: Use Supabase migrations
-- New pages: Add to `src/pages/` and update routing
-- Components: Follow shadcn/ui patterns
-- Styling: Use design system tokens
+Deploy! (We're live at [paperlog-shelf.vercel.app](https://paperlog-shelf.vercel.app))
 
-### Environment Variables
-```env
-VITE_SUPABASE_URL=your-supabase-project-url
-VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
-VITE_SITE_URL=http://localhost:5173
-```
+## 📜 License
 
-## Production Deployment
-
-1. Update environment variables for production
-2. Configure production redirect URLs in Supabase
-3. Set up proper domain and HTTPS
-4. Deploy to your preferred platform (Vercel, Netlify, etc.)
-
-## License
-
-MIT License - see LICENSE file for details
+MIT — see LICENSE for details.
