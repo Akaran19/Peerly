@@ -5,6 +5,7 @@ import { dataClient } from '@/lib/dataClient';
 import { PaperCard } from '@/components/PaperCard';
 import { User, BookOpen, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import Header from '@/components/Header';
 
 export default function AuthorPage() {
   const params = useParams();
@@ -44,6 +45,7 @@ export default function AuthorPage() {
   if (isLoading) {
     return (
       <div className="page-wrapper">
+        <Header />
         <main className="page-container">
           <div className="animate-pulse space-y-8">
             <div className="h-8 bg-muted rounded w-1/2"></div>
@@ -67,6 +69,7 @@ export default function AuthorPage() {
   if (notFound || !author) {
     return (
       <div className="page-wrapper">
+        <Header />
         <main className="page-container">
           <div className="text-center py-12">
             <h1 className="text-4xl font-bold mb-4">Author Not Found</h1>
@@ -84,6 +87,7 @@ export default function AuthorPage() {
 
   return (
     <div className="page-wrapper">
+      <Header />
       <main className="page-container">
         {/* Navigation */}
         <div className="mb-6">

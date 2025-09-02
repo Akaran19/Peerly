@@ -8,8 +8,17 @@ export interface Paper {
   title: string;
   abstract?: string;
   year?: number;
-  journalId?: string;
-  authorIds: string[];
+  // Enhanced metadata from CrossRef (temporarily optional due to schema sync issues)
+  publishedDate?: string; // Full publication date (YYYY-MM-DD)
+  journal?: string; // Journal name
+  conference?: string; // Conference name
+  authors?: string[]; // Full author names
+  referencesCount?: number; // Number of references
+  citationCount?: number; // Citation count
+  publisher?: string; // Publisher name
+  type?: string; // Publication type
+  pdfUrl?: string; // Direct PDF link
+  htmlUrl?: string; // HTML version link
 }
 
 export interface Author {
@@ -57,6 +66,7 @@ export interface PaperAggregates {
   avgRating: number;
   count: number;
   latest: UserPaper[];
+  histogram?: Record<1|2|3|4|5, number>;
 }
 
 export interface SearchResult {

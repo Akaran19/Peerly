@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { User, UserPaper } from '@/types';
+import { User, UserPaper, Shelf } from '@/types';
 import { dataClient } from '@/lib/dataClient';
 import { UserLibraryTabs } from '@/components/UserLibraryTabs';
 import { User as UserIcon, Settings, Calendar, BookOpen, Star, MessageSquare, Edit3 } from 'lucide-react';
@@ -8,8 +8,12 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import Header from '@/components/Header';
 
 export default function ProfilePage() {
+  const { user: authUser, loading: authLoading } = useAuth();
   const [user, setUser] = useState<User | null>(null);
   const [userPapers, setUserPapers] = useState<UserPaper[]>([]);
   const [stats, setStats] = useState({
@@ -19,31 +23,116 @@ export default function ProfilePage() {
     readThisYear: 0
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [memberSince, setMemberSince] = useState<string>('2023');
 
   useEffect(() => {
-    loadUserProfile();
-  }, []);
+    if (!authLoading) {
+      if (authUser) {
+        loadUserProfile();
+      } else {
+        // Reset state when user signs out
+        setUser(null);
+        setUserPapers([]);
+        setStats({
+          totalPapers: 0,
+          averageRating: 0,
+          totalReviews: 0,
+          readThisYear: 0
+        });
+        setError(null);
+        setIsLoading(false);
+      }
+    }
+  }, [authLoading, authUser]);
 
   const loadUserProfile = async () => {
+    if (!authUser) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      // Get current user (in real app, this would come from auth context)
-      const currentUser = dataClient.getCurrentUser();
-      const papersData = await dataClient.listUserPapers(currentUser.id);
+      setError(null);
       
+      // Fetch user profile from Supabase
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .single();
+
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+        setError('Failed to load your profile. Please try refreshing the page.');
+        setIsLoading(false);
+        return;
+      }
+
+      // Fetch user's papers from Supabase
+      const { data: papersData, error: papersError } = await supabase
+        .from('user_papers')
+        .select(`
+          *,
+          papers (
+            id,
+            title,
+            doi,
+            abstract,
+            year,
+            journal
+          )
+        `)
+        .eq('user_id', authUser.id);
+
+      if (papersError) {
+        console.error('Error fetching user papers:', papersError);
+        setError('Failed to load your library. Please try refreshing the page.');
+        setIsLoading(false);
+        return;
+      }
+
+      // Transform profile data to match User type
+      const userData: User = {
+        id: profile.id,
+        name: profile.name || 'Unknown User',
+        handle: profile.handle || profile.id.slice(0, 8),
+        image: profile.image || null
+      };
+
+      // Calculate member since date
+      const memberSince = profile.created_at 
+        ? new Date(profile.created_at).getFullYear().toString()
+        : '2023';
+
+      // Transform papers data to match UserPaper type
+      const transformedPapers: UserPaper[] = (papersData || []).map(p => ({
+        id: p.id,
+        user_id: p.user_id,
+        paper_id: p.paper_id,
+        shelf: p.shelf as Shelf,
+        rating: p.rating,
+        review: p.review,
+        created_at: p.created_at || '',
+        updated_at: p.updated_at || '',
+        upvotes: p.upvotes || 0
+      }));
+
       // Calculate stats
-      const totalPapers = papersData.length;
-      const ratingsData = papersData.filter(p => p.rating !== null);
+      const totalPapers = transformedPapers.length;
+      const ratingsData = transformedPapers.filter(p => p.rating !== null);
       const averageRating = ratingsData.length > 0 
         ? ratingsData.reduce((sum, p) => sum + (p.rating || 0), 0) / ratingsData.length
         : 0;
-      const totalReviews = papersData.filter(p => p.review && p.review.trim()).length;
+      const totalReviews = transformedPapers.filter(p => p.review && p.review.trim()).length;
       const currentYear = new Date().getFullYear();
-      const readThisYear = papersData.filter(p => 
-        p.shelf === 'READ' && new Date(p.updatedAt).getFullYear() === currentYear
+      const readThisYear = transformedPapers.filter(p => 
+        p.shelf === 'READ' && new Date(p.updated_at).getFullYear() === currentYear
       ).length;
 
-      setUser(currentUser);
-      setUserPapers(papersData);
+      setUser(userData);
+      setUserPapers(transformedPapers);
+      setMemberSince(memberSince);
       setStats({
         totalPapers,
         averageRating: Math.round(averageRating * 10) / 10,
@@ -52,6 +141,7 @@ export default function ProfilePage() {
       });
     } catch (error) {
       console.error('Error loading user profile:', error);
+      setError('An unexpected error occurred. Please try refreshing the page.');
     } finally {
       setIsLoading(false);
     }
@@ -83,17 +173,40 @@ export default function ProfilePage() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="page-wrapper">
+        <main className="page-container">
+          <div className="text-center py-12">
+            <h1 className="text-4xl font-bold mb-4 text-destructive">Error Loading Profile</h1>
+            <p className="text-muted-foreground mb-8">
+              {error}
+            </p>
+            <div className="flex gap-4 justify-center">
+              <Button onClick={() => loadUserProfile()} variant="outline">
+                Try Again
+              </Button>
+              <Link to="/" className="text-primary hover:underline">
+                ← Back to home
+              </Link>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   if (!user) {
     return (
       <div className="page-wrapper">
         <main className="page-container">
           <div className="text-center py-12">
-            <h1 className="text-4xl font-bold mb-4">Profile Not Found</h1>
+            <h1 className="text-4xl font-bold mb-4">Please Sign In</h1>
             <p className="text-muted-foreground mb-8">
-              Unable to load your profile.
+              You need to be signed in to view your profile.
             </p>
-            <Link to="/" className="text-primary hover:underline">
-              ← Back to home
+            <Link to="/auth" className="text-primary hover:underline">
+              ← Go to Sign In
             </Link>
           </div>
         </main>
@@ -103,16 +216,8 @@ export default function ProfilePage() {
 
   return (
     <div className="page-wrapper">
+      <Header />
       <main className="page-container">
-        {/* Navigation */}
-        <div className="mb-6">
-          <Link 
-            to="/"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
-          >
-            ← Back to home
-          </Link>
-        </div>
 
         <div className="space-y-8">
           {/* Profile Header */}
@@ -144,7 +249,7 @@ export default function ProfilePage() {
               <div className="flex flex-wrap items-center gap-4 mb-4">
                 <Badge variant="secondary">
                   <Calendar className="w-3 h-3 mr-1" />
-                  Member since 2023
+                  Member since {memberSince}
                 </Badge>
                 <Link to="/settings" className="text-sm text-muted-foreground hover:text-primary transition-colors">
                   <Settings className="w-4 h-4 inline mr-1" />
@@ -194,7 +299,7 @@ export default function ProfilePage() {
           {/* Library */}
           <div className="space-y-6">
             <h2 className="text-2xl font-semibold">My Library</h2>
-            <UserLibraryTabs userId={user.id} />
+            <UserLibraryTabs userId={user.id} userPapers={userPapers} />
           </div>
         </div>
       </main>

@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import Header from '@/components/Header';
 
 export default function AuthPage() {
   const { user, signInWithGoogle } = useAuth();
@@ -18,18 +19,11 @@ export default function AuthPage() {
 
   return (
     <div className="page-wrapper">
+      <Header />
       <main className="page-container">
         <div className="max-w-md mx-auto space-y-8">
           {/* Header */}
           <div className="text-center space-y-4">
-            <div className="flex justify-center">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-primary/10 rounded-2xl">
-                  <GraduationCap className="w-8 h-8 text-primary" />
-                </div>
-                <h1 className="text-3xl font-bold">Peerly</h1>
-              </div>
-            </div>
             <div className="space-y-2">
               <h2 className="text-2xl font-semibold">Welcome to Peerly</h2>
               <p className="text-muted-foreground">

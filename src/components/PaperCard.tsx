@@ -1,18 +1,23 @@
 import { Link } from 'react-router-dom';
-import { Paper, Author, Journal } from '@/types';
+import { Paper, PaperAggregates } from '@/types';
 import { paperUrl } from '@/lib/routing';
 import { formatDOIUrl } from '@/lib/doi';
-import { ExternalLink, Users, Calendar } from 'lucide-react';
+import { ExternalLink, Users, Calendar, BookOpen } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { RatingStars } from '@/components/RatingStars';
 
 interface PaperCardProps {
   paper: Paper;
-  authors?: Author[];
-  journal?: Journal;
   showAbstract?: boolean;
+  aggregates?: PaperAggregates;
 }
 
-export function PaperCard({ paper, authors = [], journal, showAbstract = false }: PaperCardProps) {
+export function PaperCard({ paper, showAbstract = false, aggregates }: PaperCardProps) {
+  // Helper function to generate Google Scholar URL for author search
+  const getGoogleScholarUrl = (authorName: string): string => {
+    const encodedAuthor = encodeURIComponent(`"${authorName}"`);
+    return `https://scholar.google.com/scholar?q=author:${encodedAuthor}`;
+  };
   return (
     <div className="academic-card p-6 space-y-4">
       <div className="space-y-3">
@@ -37,29 +42,57 @@ export function PaperCard({ paper, authors = [], journal, showAbstract = false }
         </div>
 
         <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-          {authors.length > 0 && (
+          {paper.authors && paper.authors.length > 0 && (
             <div className="flex items-center gap-1.5">
               <Users className="w-4 h-4" />
-              <span>
-                {authors.slice(0, 3).map(author => author.name).join(', ')}
-                {authors.length > 3 && ` +${authors.length - 3} more`}
-              </span>
+              <a
+                href={getGoogleScholarUrl(paper.authors[0])}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-muted-foreground hover:text-primary transition-colors underline decoration-transparent hover:decoration-current"
+                title={`Search for ${paper.authors[0]}'s publications on Google Scholar`}
+              >
+                {paper.authors.slice(0, 3).join(', ')}
+                {paper.authors.length > 3 && ` +${paper.authors.length - 3} more`}
+              </a>
             </div>
           )}
           
-          {paper.year && (
+          {paper.publishedDate && (
             <div className="flex items-center gap-1.5">
               <Calendar className="w-4 h-4" />
-              <span>{paper.year}</span>
+              <span>{new Date(paper.publishedDate).getFullYear()}</span>
+            </div>
+          )}
+
+          {paper.referencesCount && (
+            <div className="flex items-center gap-1.5">
+              <BookOpen className="w-4 h-4" />
+              <span>{paper.referencesCount} refs</span>
             </div>
           )}
         </div>
 
-        {journal && (
+        {(paper.journal || paper.conference) && (
           <div>
             <Badge variant="secondary" className="text-xs">
-              {journal.name}
+              {paper.journal || paper.conference}
             </Badge>
+          </div>
+        )}
+
+        {/* Rating Display */}
+        {aggregates && aggregates.count > 0 && (
+          <div className="flex items-center gap-2">
+            <RatingStars 
+              rating={aggregates.avgRating} 
+              readonly 
+              size="sm" 
+              showValue
+            />
+            <span className="text-xs text-muted-foreground">
+              ({aggregates.count} {aggregates.count === 1 ? 'review' : 'reviews'})
+            </span>
           </div>
         )}
 

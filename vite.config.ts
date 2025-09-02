@@ -8,6 +8,13 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    proxy: {
+      '/api/semanticscholar': {
+        target: 'https://api.semanticscholar.org',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/semanticscholar/, ''),
+      },
+    },
   },
   plugins: [
     react(),

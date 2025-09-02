@@ -7,6 +7,7 @@ import { BookOpen, Eye, CheckCircle2 } from 'lucide-react';
 
 interface UserLibraryTabsProps {
   userId: string;
+  userPapers?: UserPaper[];
 }
 
 const shelfConfig = {
@@ -15,7 +16,7 @@ const shelfConfig = {
   READ: { label: 'Read', icon: CheckCircle2 }
 } as const;
 
-export function UserLibraryTabs({ userId }: UserLibraryTabsProps) {
+export function UserLibraryTabs({ userId, userPapers: passedUserPapers }: UserLibraryTabsProps) {
   const [userPapers, setUserPapers] = useState<Record<Shelf, UserPaper[]>>({
     WANT: [],
     READING: [],
@@ -26,8 +27,55 @@ export function UserLibraryTabs({ userId }: UserLibraryTabsProps) {
   const [activeTab, setActiveTab] = useState<Shelf>('WANT');
 
   useEffect(() => {
-    loadUserLibrary();
-  }, [userId]);
+    if (passedUserPapers) {
+      // Use passed user papers data
+      loadUserLibraryFromData(passedUserPapers);
+    } else {
+      // Fallback to fetching from dataClient
+      loadUserLibrary();
+    }
+  }, [userId, passedUserPapers]);
+
+  const loadUserLibraryFromData = async (papersData: UserPaper[]) => {
+    try {
+      setIsLoading(true);
+      
+      // Group papers by shelf
+      const groupedPapers = papersData.reduce((acc, userPaper) => {
+        if (!acc[userPaper.shelf]) {
+          acc[userPaper.shelf] = [];
+        }
+        acc[userPaper.shelf].push(userPaper);
+        return acc;
+      }, {} as Record<Shelf, UserPaper[]>);
+
+      const allUserPapers = papersData;
+      const paperIds = [...new Set(allUserPapers.map(up => up.paper_id))];
+
+      // Load paper details
+      const paperData: Record<string, Paper> = {};
+      await Promise.all(
+        paperIds.map(async (paperId) => {
+          const paper = await dataClient.getPaperById(paperId);
+          if (paper) {
+            paperData[paperId] = paper;
+          }
+        })
+      );
+
+      setUserPapers({
+        WANT: groupedPapers.WANT || [],
+        READING: groupedPapers.READING || [],
+        READ: groupedPapers.READ || []
+      });
+      setPapers(paperData);
+      
+    } catch (error) {
+      console.error('Error loading user library:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const loadUserLibrary = async () => {
     try {
@@ -41,7 +89,7 @@ export function UserLibraryTabs({ userId }: UserLibraryTabsProps) {
       ]);
 
       const allUserPapers = [...wantPapers, ...readingPapers, ...readPapers];
-      const paperIds = [...new Set(allUserPapers.map(up => up.paperId))];
+      const paperIds = [...new Set(allUserPapers.map(up => up.paper_id))];
 
       // Load paper details
       const paperData: Record<string, Paper> = {};
@@ -128,7 +176,7 @@ export function UserLibraryTabs({ userId }: UserLibraryTabsProps) {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {userPapers[shelf].map((userPaper) => {
-                const paper = papers[userPaper.paperId];
+                const paper = papers[userPaper.paper_id];
                 if (!paper) return null;
                 
                 return (

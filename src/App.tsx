@@ -13,25 +13,33 @@ import ProfilePage from '@/pages/ProfilePage';
 import NotFoundPage from '@/pages/NotFoundPage';
 
 function App() {
-  return (
-    <AuthProvider>
-      <Router>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/paper/:paperIdAndSlug" element={<PaperPage />} />
-          <Route path="/paper/doi/:encoded" element={<DOIResolverPage />} />
-          <Route path="/author/:id" element={<AuthorPage />} />
-          <Route path="/journal/:id" element={<JournalPage />} />
-          <Route path="/u/:handle" element={<UserPage />} />
-          <Route path="/signin" element={<SignInPage />} />
-          <Route path="/auth" element={<AuthPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-        <Toaster />
-      </Router>
-    </AuthProvider>
-  );
+  console.log('App component rendering...');
+
+  try {
+    console.log('App component: Rendering AuthProvider...');
+    return (
+      <AuthProvider>
+        <Router>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/paper/:paperIdAndSlug" element={<PaperPage />} />
+            <Route path="/paper/doi/:encoded" element={<DOIResolverPage />} />
+            <Route path="/author/:id" element={<AuthorPage />} />
+            <Route path="/journal/:id" element={<JournalPage />} />
+            <Route path="/u/:handle" element={<UserPage />} />
+            <Route path="/signin" element={<SignInPage />} />
+            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+          <Toaster />
+        </Router>
+      </AuthProvider>
+    );
+  } catch (error) {
+    console.error('App component: Error during render:', error);
+    return <div style={{ padding: '20px', color: 'red' }}>Error: {error.message}</div>;
+  }
 }
 
 export default App;

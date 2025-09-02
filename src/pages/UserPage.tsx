@@ -6,6 +6,7 @@ import { UserLibraryTabs } from '@/components/UserLibraryTabs';
 import { User as UserIcon, Calendar, BookOpen } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import Header from '@/components/Header';
 
 export default function UserPage() {
   const params = useParams();
@@ -45,6 +46,7 @@ export default function UserPage() {
   if (isLoading) {
     return (
       <div className="page-wrapper">
+        <Header />
         <main className="page-container">
           <div className="animate-pulse space-y-8">
             <div className="flex items-center gap-4">
@@ -76,6 +78,7 @@ export default function UserPage() {
   if (notFound || !user) {
     return (
       <div className="page-wrapper">
+        <Header />
         <main className="page-container">
           <div className="text-center py-12">
             <h1 className="text-4xl font-bold mb-4">User Not Found</h1>
@@ -93,6 +96,7 @@ export default function UserPage() {
 
   return (
     <div className="page-wrapper">
+      <Header />
       <main className="page-container">
         {/* Navigation */}
         <div className="mb-6">

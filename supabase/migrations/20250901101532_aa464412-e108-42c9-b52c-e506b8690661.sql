@@ -10,15 +10,24 @@ create table if not exists public.profiles (
   created_at timestamptz default now()
 );
 
--- papers: minimal paper record
+-- papers: enhanced paper record with comprehensive metadata
 create table if not exists public.papers (
   id uuid primary key default gen_random_uuid(),
   doi text unique not null,  -- normalized: lowercase, no doi.org/
   title text not null,
   abstract text,
   year int,
-  journal text,
-  meta jsonb,
+  journal text,  -- Journal name
+  conference text,  -- Conference name (for conference papers)
+  published_date date,  -- Full publication date
+  authors text[],  -- Array of full author names
+  references_count int,  -- Number of references
+  citation_count int,  -- Citation count from CrossRef
+  publisher text,  -- Publisher name
+  type text,  -- Publication type (journal-article, conference-paper, etc.)
+  pdf_url text,  -- Direct PDF link
+  html_url text,  -- HTML version link
+  meta jsonb,  -- Additional metadata as JSON
   created_at timestamptz default now()
 );
 

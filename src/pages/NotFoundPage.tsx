@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom';
 import { GraduationCap, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import Header from '@/components/Header';
 
 export default function NotFoundPage() {
   return (
     <div className="page-wrapper">
+      <Header />
       <main className="page-container">
         <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 text-center">
           <div className="space-y-4">

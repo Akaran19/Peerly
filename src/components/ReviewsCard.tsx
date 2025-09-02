@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getAggregatesForPaper, getTopReviewsForPaper } from "@/lib/dataClient";
+import { dataClient } from "@/lib/dataClient";
 import { UserPaper, User } from "@/types";
 import { Star, User as UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,8 @@ export default function ReviewsCard({ paperId, limit = 3 }: ReviewsCardProps) {
 
   useEffect(() => {
     Promise.all([
-      getAggregatesForPaper(paperId),
-      getTopReviewsForPaper(paperId, limit),
+      dataClient.getAggregatesForPaper(paperId),
+      dataClient.getTopReviewsForPaper(paperId, limit),
     ]).then(([agg, reviews]) => {
       setAgg(agg);
       setReviews(reviews);
@@ -62,7 +62,7 @@ export default function ReviewsCard({ paperId, limit = 3 }: ReviewsCardProps) {
                 </div>
                 <div>
                   <div className="font-medium">{review.user?.name || review.user?.handle || "Anonymous"}</div>
-                  <div className="text-xs text-muted-foreground">{review.updatedAt ? new Date(review.updatedAt).toLocaleDateString() : ""}</div>
+                  <div className="text-xs text-muted-foreground">{review.updated_at ? new Date(review.updated_at).toLocaleDateString() : ""}</div>
                 </div>
                 <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs text-slate-600 dark:text-slate-300 ml-auto">
                   ▲ {review.upvotes ?? 0}

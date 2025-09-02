@@ -95,24 +95,41 @@ export async function getUserPapers(userId: string, shelf?: 'WANT' | 'READING' |
 }
 
 export async function getPaperAggregates(paperId: string) {
-  const { data, error } = await supabase
+  // Get ratings
+  const { data: ratingData, error: ratingError } = await supabase
     .from('user_papers')
     .select('rating')
     .eq('paper_id', paperId);
 
-  if (error) {
-    console.error('Error fetching paper aggregates:', error);
-    return { avgRating: 0, count: 0 };
+  if (ratingError) {
+    console.error('Error fetching paper aggregates:', ratingError);
+    return { avgRating: 0, count: 0, latest: [] };
   }
 
-  const ratings = (data ?? [])
+  const ratings = (ratingData ?? [])
     .map(r => r.rating)
     .filter((rating): rating is number => rating !== null);
   
   const avg = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
+
+  // Get latest reviews
+  const { data: latestData, error: latestError } = await supabase
+    .from('user_papers')
+    .select('*')
+    .eq('paper_id', paperId)
+    .not('review', 'is', null)
+    .order('updated_at', { ascending: false })
+    .limit(3);
+
+  const latest = latestError ? [] : (latestData || []).map(item => ({
+    ...item,
+    shelf: item.shelf as 'WANT' | 'READING' | 'READ'
+  }));
+
   return { 
     avgRating: Number(avg.toFixed(2)), 
-    count: ratings.length 
+    count: ratings.length,
+    latest
   };
 }
 
@@ -176,38 +193,51 @@ export async function getRecentPapers(limit = 20) {
   return data || [];
 }
 
-export async function getTrendingPapers(limit = 20) {
-  // For now, get papers with the most user interactions
+export async function getTrendingPapers(limit = 6) {
+  // Get papers with their average ratings, ordered by highest rating
   const { data, error } = await supabase
     .from('user_papers')
     .select(`
       paper_id,
-      papers (
-        id,
-        title,
-        abstract,
-        year,
-        journal,
-        doi,
-        created_at
-      )
+      rating,
+      papers (*)
     `)
     .not('papers', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(limit * 2); // Get more to account for duplicates
+    .not('rating', 'is', null);
 
   if (error) {
     console.error('Error fetching trending papers:', error);
     return [];
   }
 
-  // Remove duplicates and extract papers
-  const uniquePapers = new Map();
+  // Group by paper and calculate average rating
+  const paperStats = new Map();
+
   data?.forEach(item => {
-    if (item.papers && !uniquePapers.has(item.papers.id)) {
-      uniquePapers.set(item.papers.id, item.papers);
+    if (!item.papers) return;
+
+    const paperId = item.paper_id;
+    const rating = item.rating;
+
+    if (!paperStats.has(paperId)) {
+      paperStats.set(paperId, {
+        paper: item.papers,
+        ratings: [],
+        avgRating: 0
+      });
     }
+
+    paperStats.get(paperId).ratings.push(rating);
   });
 
-  return Array.from(uniquePapers.values()).slice(0, limit);
+  // Calculate average ratings and sort by highest rating
+  const sortedPapers = Array.from(paperStats.values())
+    .map(stat => ({
+      ...stat.paper,
+      avgRating: stat.ratings.reduce((a, b) => a + b, 0) / stat.ratings.length
+    }))
+    .sort((a, b) => b.avgRating - a.avgRating)
+    .slice(0, limit);
+
+  return sortedPapers;
 }
