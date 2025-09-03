@@ -88,13 +88,13 @@ export function PaperCard({ paper, showAbstract = false, aggregates, showActions
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-sm text-muted-foreground">
           {paper.authors && paper.authors.length > 0 && (
-            <div className="flex items-center gap-1.5 min-w-0 flex-1 sm:flex-none">
-              <Users className="w-4 h-4 flex-shrink-0" />
+            <div className="flex items-start gap-1.5 min-w-0 flex-1">
+              <Users className="w-4 h-4 flex-shrink-0 mt-0.5" />
               <a
                 href={getGoogleScholarUrl(paper.authors[0])}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-muted-foreground hover:text-primary transition-colors underline decoration-transparent hover:decoration-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm truncate"
+                className="text-muted-foreground hover:text-primary transition-colors underline decoration-transparent hover:decoration-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm break-words"
                 title={`Search for ${paper.authors[0]}'s publications on Google Scholar`}
               >
                 {paper.authors.slice(0, 2).join(', ')}

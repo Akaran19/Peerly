@@ -21,42 +21,34 @@ import TermsPage from '@/pages/TermsPage';
 import NotFoundPage from '@/pages/NotFoundPage';
 
 function App() {
-  console.log('App component rendering...');
-
-  try {
-    console.log('App component: Rendering AuthProvider...');
-    return (
-      <HelmetProvider>
-        <AuthProvider>
-          <Router>
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/paper/:paperIdAndSlug" element={<PaperPage />} />
-              <Route path="/paper/doi/:encoded" element={<DOIResolverPage />} />
-              <Route path="/paper/external/:source/:id" element={<ExternalPaperResolverPage />} />
-              <Route path="/paper/pmid/:pmid" element={<PMIDResolverPage />} />
-              <Route path="/author/:id" element={<AuthorPage />} />
-              <Route path="/journal/:id" element={<JournalPage />} />
-              <Route path="/u/:handle" element={<UserPage />} />
-              <Route path="/signin" element={<SignInPage />} />
-              <Route path="/auth" element={<AuthCallbackPage />} />
-              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/reset-password" element={<ResetPasswordPage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/privacy" element={<PrivacyPage />} />
-              <Route path="/terms" element={<TermsPage />} />
-              <Route path="*" element={<NotFoundPage />} />
-            </Routes>
-            <Toaster />
-          </Router>
-          <Analytics />
-        </AuthProvider>
-      </HelmetProvider>
-    );
-  } catch (error) {
-    console.error('App component: Error during render:', error);
-    return <div style={{ padding: '20px', color: 'red' }}>Error: {error.message}</div>;
-  }
+  return (
+    <HelmetProvider>
+      <AuthProvider>
+        <Router>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/paper/:paperIdAndSlug" element={<PaperPage />} />
+            <Route path="/paper/doi/:encoded" element={<DOIResolverPage />} />
+            <Route path="/paper/external/:source/:id" element={<ExternalPaperResolverPage />} />
+            <Route path="/paper/pmid/:pmid" element={<PMIDResolverPage />} />
+            <Route path="/author/:id" element={<AuthorPage />} />
+            <Route path="/journal/:id" element={<JournalPage />} />
+            <Route path="/u/:handle" element={<UserPage />} />
+            <Route path="/signin" element={<SignInPage />} />
+            <Route path="/auth" element={<AuthCallbackPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+          <Toaster />
+        </Router>
+        <Analytics />
+      </AuthProvider>
+    </HelmetProvider>
+  );
 }
 
 export default App;

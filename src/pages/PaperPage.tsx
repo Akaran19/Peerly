@@ -18,9 +18,6 @@ export default function PaperPage() {
   const navigate = useNavigate();
   const paperIdAndSlug = params.paperIdAndSlug as string;
 
-  console.log('PaperPage component rendering for slug:', paperIdAndSlug);
-  console.log('Params object:', params);
-
   const [paper, setPaper] = useState<Paper | null>(null);
   const [richMetadata, setRichMetadata] = useState<DisplayPaperMetadata | null>(null);
   const [isLoadingRichData, setIsLoadingRichData] = useState(false);
@@ -50,17 +47,13 @@ export default function PaperPage() {
 
   const loadPaperData = async () => {
     if (isLoadingRef.current) {
-      console.log('Already loading data, skipping...');
       return;
     }
 
     isLoadingRef.current = true;
-    console.log('Starting to load paper data...');
 
     try {
       const paperId = extractPaperId(paperIdAndSlug);
-      console.log('Loading paper data for slug:', paperIdAndSlug, 'extracted ID:', paperId);
-      console.log('Full slug length:', paperIdAndSlug.length);
 
       if (!paperId) {
         console.error('Could not extract paper ID from slug:', paperIdAndSlug);
@@ -69,25 +62,19 @@ export default function PaperPage() {
       }
 
       const paperData = await dataClient.getPaperById(paperId);
-      console.log('Fetched paper data:', paperData);
 
       if (!paperData || !paperData.id) {
-        console.log('Paper not found or invalid data for ID:', paperId);
         setNotFound(true);
         return;
       }
 
       // Check if slug matches and redirect if needed
       const shouldRedirect = shouldRedirectForSlug(paperIdAndSlug, paperData.title);
-      console.log('Should redirect for slug?', shouldRedirect, 'current slug:', paperIdAndSlug, 'title:', paperData.title);
       if (shouldRedirect) {
         const newUrl = paperUrl(paperData);
-        console.log('Redirecting to:', newUrl);
         const currentPath = window.location.pathname;
         if (newUrl !== currentPath) {
           navigate(newUrl, { replace: true });
-        } else {
-          console.log('Redirect URL is same as current URL, skipping redirect');
         }
         return;
       }
@@ -99,11 +86,9 @@ export default function PaperPage() {
       if (needsRichData) {
         setIsLoadingRichData(true);
         try {
-          console.log('Fetching rich metadata from multiple APIs for DOI:', paperData.doi);
           const multiApiData = await getPaperByDOI(paperData.doi);
           if (multiApiData && multiApiData.title) {
             richMetadata = extractPaperMetadata(multiApiData);
-            console.log('Rich metadata extracted:', richMetadata);
 
             // Update the database with the fresh metadata
             await dataClient.lookupPaperByDOI(paperData.doi); // This will trigger the update logic
@@ -130,28 +115,21 @@ export default function PaperPage() {
           pdfUrl: paperData.pdfUrl || undefined,
           htmlUrl: paperData.htmlUrl || undefined
         };
-        console.log('Using stored rich metadata:', richMetadata);
       }
 
       // Load aggregates data
       const aggregatesData = await dataClient.getAggregatesForPaper(paperId);
 
-      console.log('Setting paper data:', paperData);
-      console.log('Setting rich metadata:', richMetadata);
-      console.log('Setting aggregates:', aggregatesData);
-
       setPaper(paperData);
       setRichMetadata(richMetadata);
       setAggregates(aggregatesData);
 
-      console.log('Data loading completed successfully');
     } catch (error) {
       console.error('Error loading paper:', error);
       setNotFound(true);
     } finally {
       setIsLoading(false);
       isLoadingRef.current = false;
-      console.log('Loading state set to false, isLoading:', false);
     }
   };
 
@@ -168,7 +146,6 @@ export default function PaperPage() {
 
     setIsRefreshing(true);
     try {
-      console.log('Refreshing metadata from multiple APIs for DOI:', paper.doi);
       const multiApiData = await getPaperByDOI(paper.doi);
       if (multiApiData && multiApiData.title) {
         const freshMetadata = extractPaperMetadata(multiApiData);
@@ -177,7 +154,6 @@ export default function PaperPage() {
         // Update the database with fresh data
         await dataClient.lookupPaperByDOI(paper.doi);
 
-        console.log('Metadata refreshed successfully');
       } else {
         console.warn('No valid data returned from APIs for refresh');
       }
@@ -189,34 +165,7 @@ export default function PaperPage() {
     }
   };
 
-  console.log('PaperPage render - isLoading:', isLoading, 'notFound:', notFound, 'paper:', paper);
-
-  if (isLoading) {
-    return (
-      <div className="page-wrapper">
-        <main className="page-container">
-          <div className="animate-pulse space-y-8">
-            <div className="h-8 bg-muted rounded w-3/4"></div>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2 space-y-6">
-                <div className="h-6 bg-muted rounded w-1/2"></div>
-                <div className="h-4 bg-muted rounded w-1/3"></div>
-                <div className="space-y-2">
-                  <div className="h-4 bg-muted rounded"></div>
-                  <div className="h-4 bg-muted rounded"></div>
-                  <div className="h-4 bg-muted rounded w-3/4"></div>
-                </div>
-              </div>
-              <div className="h-96 bg-muted rounded"></div>
-            </div>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
   if (notFound || !paper) {
-    console.log('Rendering not found - notFound:', notFound, 'paper:', paper, 'isLoading:', isLoading);
     return (
       <div className="page-wrapper">
         <main className="page-container">

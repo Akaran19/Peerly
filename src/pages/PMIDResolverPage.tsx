@@ -31,22 +31,17 @@ export default function PMIDResolverPage() {
 
     const fetchPubMedSummary = async () => {
       try {
-        console.log('Fetching PubMed record for:', pmid);
         const url = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&retmode=json&id=${pmid}&tool=peerly&email=akaran1909@gmail.com`;
-        console.log('API URL:', url);
 
         const response = await fetch(url);
-        console.log('Response status:', response.status);
 
         if (!response.ok) {
           throw new Error(`PubMed API error: ${response.status} ${response.statusText}`);
         }
 
         const data = await response.json();
-        console.log('API Response:', data);
 
         const rec = data?.result?.[pmid];
-        console.log('Record data:', rec);
 
         if (!rec) {
           throw new Error('PubMed record not found - the ID may be invalid or the record may not exist');
@@ -73,10 +68,7 @@ export default function PMIDResolverPage() {
           }
         }
 
-        console.log('Found DOI:', doi);
-
         if (doi) {
-          console.log('Redirecting to DOI resolver:', doi);
           navigate(`/paper/doi/${encodeURIComponent(doi)}`);
           return;
         }

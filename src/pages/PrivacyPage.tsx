@@ -70,8 +70,8 @@ export default function PrivacyPage() {
               If you have any questions about this Privacy Policy, please contact us at:
             </p>
             <p>
-              <a href="mailto:akaran1909@gmail.com" className="text-primary hover:underline">
-                akaran1909@gmail.com
+              <a href="mailto:contact@peerly.io" className="text-primary hover:underline">
+                contact@peerly.io
               </a>
             </p>
           </section>

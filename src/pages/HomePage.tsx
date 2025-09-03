@@ -8,15 +8,13 @@ import { AuthButton } from '@/components/AuthButton';
 import { getRecentPapers, getTrendingPapers, getPaperAggregates } from '@/lib/supabaseHelpers';
 import { mapDatabasePaperToPaper } from '@/lib/dataClient';
 import { paperDoiUrl, paperPmidUrl } from '@/lib/routing';
-import { GraduationCap, TrendingUp, Clock, Flame, AlertCircle, X, ExternalLink } from 'lucide-react';
+import { GraduationCap, TrendingUp, Clock, Flame, AlertCircle, X, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import Header from '@/components/Header';
 
 export default function HomePage() {
-  console.log('HomePage component: Starting to render...');
-
   const location = useLocation();
   const [papers, setPapers] = useState<Paper[]>([]);
   const [paperAggregates, setPaperAggregates] = useState<Record<string, PaperAggregates>>({});
@@ -24,11 +22,17 @@ export default function HomePage() {
   const [viewMode, setViewMode] = useState<'recent' | 'trending'>('recent');
   const [trendingPeriod, setTrendingPeriod] = useState<'week' | 'month' | 'all'>('all');
   const [error, setError] = useState<{ type: string; message: string; doi?: string } | null>(null);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalPapers, setTotalPapers] = useState(0);
+  const papersPerPage = 9;
 
   useEffect(() => {
     loadInitialData();
     checkForErrors();
-  }, [viewMode, trendingPeriod]);
+  }, [viewMode, trendingPeriod, currentPage]);
 
   const checkForErrors = () => {
     const urlParams = new URLSearchParams(location.search);
@@ -76,14 +80,21 @@ export default function HomePage() {
   };
 
   const loadInitialData = async () => {
-    console.log('Loading initial data...');
     setIsLoading(true);
     try {
-      console.log('Fetching papers with viewMode:', viewMode);
-      const data = viewMode === 'recent' 
-        ? await getRecentPapers(12) 
-        : await getTrendingPapers(12, trendingPeriod);
-      console.log('Fetched papers:', data);
+      let data, totalCount;
+      if (viewMode === 'recent') {
+        const result = await getRecentPapers(papersPerPage, (currentPage - 1) * papersPerPage);
+        data = result.papers;
+        totalCount = result.totalCount;
+        setTotalPapers(totalCount);
+        setTotalPages(Math.ceil(totalCount / papersPerPage));
+      } else {
+        data = await getTrendingPapers(12, trendingPeriod);
+        totalCount = data.length;
+        setTotalPapers(totalCount);
+        setTotalPages(Math.ceil(totalCount / papersPerPage));
+      }
       
       // Map database format to TypeScript format
       const mappedPapers = data.map(mapDatabasePaperToPaper);
@@ -115,6 +126,25 @@ export default function HomePage() {
   const handleSearch = (query: string, mode: 'doi' | 'pmid' | 'keywords') => {
     // DOI and PMID handled by SearchBar navigation
     // Keywords search was removed during cleanup
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll to top of papers section
+    const papersSection = document.querySelector('[data-papers-section]');
+    if (papersSection) {
+      papersSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  const handleViewModeChange = (mode: 'recent' | 'trending') => {
+    setViewMode(mode);
+    setCurrentPage(1); // Reset to first page when changing view mode
+  };
+
+  const handleTrendingPeriodChange = (period: 'week' | 'month' | 'all') => {
+    setTrendingPeriod(period);
+    setCurrentPage(1); // Reset to first page when changing period
   };
 
   return (
@@ -158,7 +188,7 @@ export default function HomePage() {
                 <GraduationCap className="w-8 h-8 text-primary" />
               </div>
               <h1 className="text-4xl md:text-5xl font-bold text-foreground">
-                Peerly: where peers rate what's worth reading
+                Find what's worth reading—fast.
               </h1>
             </div>
           </div>
@@ -166,25 +196,25 @@ export default function HomePage() {
           {/* Mobile: Text below logo */}
           <div className="md:hidden px-4">
             <h1 className="text-2xl font-bold text-foreground mb-4 leading-tight">
-              Peerly: where peers rate what's worth reading
+              Find what's worth reading—fast.
             </h1>
           </div>
 
           <div className="max-w-2xl mx-auto space-y-4 px-4 md:px-0">
             <p className="text-lg md:text-xl text-muted-foreground leading-relaxed">
-              Track, rate, and review academic papers like Goodreads for research
-            </p>
-            <p className="text-sm md:text-base text-muted-foreground">
-              Discover research, organize your reading list, and build your academic library
+              See peer ratings, add your reviews, and keep your research on track.
             </p>
           </div>
         </div>        {/* Search Section */}
         <div className="max-w-2xl mx-auto mb-6 md:mb-8 px-4 md:px-0">
           <SearchBar onSearch={handleSearch} />
+          <p className="text-sm text-muted-foreground text-center mt-2">
+            Choose DOI, PMID, or Keywords before searching.
+          </p>
         </div>
 
         {/* Papers Section */}
-        <div className="space-y-6 md:space-y-8 px-4 md:px-0">
+        <div className="space-y-6 md:space-y-8 px-4 md:px-0" data-papers-section>
           <div className="text-center space-y-4">
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4 mb-4 md:mb-6">
               <h2 className="text-xl md:text-2xl font-semibold">
@@ -195,7 +225,7 @@ export default function HomePage() {
                 <Button
                   variant={viewMode === 'recent' ? 'default' : 'ghost'}
                   size="sm"
-                  onClick={() => setViewMode('recent')}
+                  onClick={() => handleViewModeChange('recent')}
                   className="flex-1 sm:flex-none gap-1 sm:gap-2"
                 >
                   <Clock className="w-4 h-4" />
@@ -205,7 +235,7 @@ export default function HomePage() {
                 <Button
                   variant={viewMode === 'trending' ? 'default' : 'ghost'}
                   size="sm"
-                  onClick={() => setViewMode('trending')}
+                  onClick={() => handleViewModeChange('trending')}
                   className="flex-1 sm:flex-none gap-1 sm:gap-2"
                 >
                   <Flame className="w-4 h-4" />
@@ -220,7 +250,7 @@ export default function HomePage() {
                   <Button
                     variant={trendingPeriod === 'week' ? 'default' : 'ghost'}
                     size="sm"
-                    onClick={() => setTrendingPeriod('week')}
+                    onClick={() => handleTrendingPeriodChange('week')}
                     className="text-xs px-2 sm:px-3 py-1 whitespace-nowrap"
                   >
                     This Week
@@ -228,7 +258,7 @@ export default function HomePage() {
                   <Button
                     variant={trendingPeriod === 'month' ? 'default' : 'ghost'}
                     size="sm"
-                    onClick={() => setTrendingPeriod('month')}
+                    onClick={() => handleTrendingPeriodChange('month')}
                     className="text-xs px-2 sm:px-3 py-1 whitespace-nowrap"
                   >
                     This Month
@@ -236,7 +266,7 @@ export default function HomePage() {
                   <Button
                     variant={trendingPeriod === 'all' ? 'default' : 'ghost'}
                     size="sm"
-                    onClick={() => setTrendingPeriod('all')}
+                    onClick={() => handleTrendingPeriodChange('all')}
                     className="text-xs px-2 sm:px-3 py-1 whitespace-nowrap"
                   >
                     All Time
@@ -281,6 +311,66 @@ export default function HomePage() {
             </div>
           )}
         </div>
+
+        {/* Pagination */}
+        {viewMode === 'recent' && totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t">
+            <div className="text-sm text-muted-foreground">
+              Showing {Math.min((currentPage - 1) * papersPerPage + 1, totalPapers)} to {Math.min(currentPage * papersPerPage, totalPapers)} of {totalPapers} papers
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1 || isLoading}
+                className="gap-1"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">Previous</span>
+              </Button>
+              
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  
+                  return (
+                    <Button
+                      key={pageNum}
+                      variant={currentPage === pageNum ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => handlePageChange(pageNum)}
+                      disabled={isLoading}
+                      className="w-8 h-8 p-0"
+                    >
+                      {pageNum}
+                    </Button>
+                  );
+                })}
+              </div>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages || isLoading}
+                className="gap-1"
+              >
+                <span className="hidden sm:inline">Next</span>
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

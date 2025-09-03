@@ -207,18 +207,30 @@ export async function searchPapers(query: string, limit = 20) {
   return data || [];
 }
 
-export async function getRecentPapers(limit = 20) {
+export async function getRecentPapers(limit = 9, offset = 0) {
+  // First, get the total count
+  const { count: totalCount, error: countError } = await supabase
+    .from('papers')
+    .select('*', { count: 'exact', head: true });
+
+  if (countError) {
+    console.error('Error fetching total count:', countError);
+    return { papers: [], totalCount: 0 };
+  }
+
+  // Then get the paginated data
   const { data, error } = await supabase
     .from('papers')
     .select('*')
     .order('created_at', { ascending: false })
-    .limit(limit);
+    .range(offset, offset + limit - 1);
 
   if (error) {
     console.error('Error fetching recent papers:', error);
-    return [];
+    return { papers: [], totalCount: 0 };
   }
-  return data || [];
+
+  return { papers: data || [], totalCount: totalCount || 0 };
 }
 
 export async function getTrendingPapers(limit = 12, timePeriod: 'week' | 'month' | 'all' = 'all') {
