@@ -8,22 +8,36 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        // Handle the OAuth callback
-        const { data, error } = await supabase.auth.getSession();
+        // First, try to get the user directly (this handles the OAuth callback)
+        const { data: userData, error: userError } = await supabase.auth.getUser();
 
-        if (error) {
-          console.error('Auth callback error:', error);
-          // Redirect to sign in page on error
+        if (userError) {
+          console.error('Auth callback user error:', userError);
           navigate('/signin');
           return;
         }
 
-        if (data.session) {
-          console.log('OAuth callback successful, user:', data.session.user.email);
+        if (userData.user) {
+          console.log('OAuth callback successful, user:', userData.user.email);
           // Redirect to home page on successful authentication
           navigate('/');
+          return;
+        }
+
+        // Fallback: try to get session
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          console.error('Auth callback session error:', sessionError);
+          navigate('/signin');
+          return;
+        }
+
+        if (sessionData.session) {
+          console.log('OAuth callback successful via session, user:', sessionData.session.user.email);
+          navigate('/');
         } else {
-          console.log('No session found in auth callback, redirecting to sign in');
+          console.log('No user or session found in auth callback, redirecting to sign in');
           navigate('/signin');
         }
       } catch (error) {
