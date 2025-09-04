@@ -49,7 +49,7 @@ function isGuestMode() {
 
 export async function getCurrentUserId(clerkUserId?: string) {
   console.log('getCurrentUserId called with clerkUserId:', clerkUserId);
-  
+
   if (isGuestMode()) {
     console.log('Guest mode detected, returning guest-user');
     return 'guest-user';
@@ -68,7 +68,7 @@ export async function getCurrentUserId(clerkUserId?: string) {
     const { data: existingProfile, error: findError } = await supabaseProfiles
       .from('profiles')
       .select('id')
-      .eq('clerk_id', clerkUserId)
+      .eq('id', clerkUserId)
       .single();
 
     console.log('Existing profile query result:', { existingProfile, findError });
@@ -79,56 +79,89 @@ export async function getCurrentUserId(clerkUserId?: string) {
     }
 
     // If profile doesn't exist, create it using direct queries instead of RPC
-    console.log('Profile not found, creating new profile');
+    console.log('Profile not found, creating new profile for clerkUserId:', clerkUserId);
     const { error: createError } = await supabaseProfiles
       .from('profiles')
       .insert({
+        id: clerkUserId,
         clerk_id: clerkUserId,
-        handle: null,
-        name: null,
+        handle: `user_${clerkUserId.slice(0, 8)}`,
+        name: `User ${clerkUserId.slice(0, 8)}`,
         image: null
       } as any);
 
     if (createError) {
       console.error('Error creating profile:', createError);
-      return null;
+      // Don't throw error here - let the user continue with limited functionality
+      return clerkUserId; // Return the Clerk ID as fallback
     }
 
     // Fetch the newly created profile
     const { data: newProfile, error: fetchError } = await supabaseProfiles
       .from('profiles')
       .select('id')
-      .eq('clerk_id', clerkUserId)
+      .eq('id', clerkUserId)
       .single();
 
     if (fetchError || !newProfile) {
       console.error('Error fetching created profile:', fetchError);
-      return null;
+      return clerkUserId; // Return the Clerk ID as fallback
     }
 
     console.log('Created new profile:', newProfile.id);
     return newProfile.id;
   } catch (error) {
     console.error('Error in getCurrentUserId:', error);
-    return null;
+    // Return Clerk ID as fallback to allow app to continue working
+    return clerkUserId;
   }
 }
 
 export async function getCurrentUserProfile(clerkUserId?: string) {
-  const userId = await getCurrentUserId(clerkUserId);
-  if (!userId) return null;
+  if (!clerkUserId) return null;
 
-  const { data, error } = await supabaseProfiles
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .single();
+  try {
+    const { data, error } = await supabaseProfiles
+      .from('profiles')
+      .select('*')
+      .eq('id', clerkUserId)
+      .single();
 
-  if (error) {
-    console.error('Error fetching profile:', error);
-    return null;
+    if (error) {
+      console.error('Error fetching profile:', error);
+      // Return a basic profile object as fallback
+      return {
+        id: clerkUserId,
+        clerk_id: clerkUserId,
+        handle: `user_${clerkUserId.slice(0, 8)}`,
+        name: `User ${clerkUserId.slice(0, 8)}`,
+        image: null
+      };
+    }
+
+    // Ensure we have valid data
+    if (!data) {
+      return {
+        id: clerkUserId,
+        clerk_id: clerkUserId,
+        handle: `user_${clerkUserId.slice(0, 8)}`,
+        name: `User ${clerkUserId.slice(0, 8)}`,
+        image: null
+      };
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Exception in getCurrentUserProfile:', error);
+    // Return fallback profile
+    return {
+      id: clerkUserId,
+      clerk_id: clerkUserId,
+      handle: `user_${clerkUserId.slice(0, 8)}`,
+      name: `User ${clerkUserId.slice(0, 8)}`,
+      image: null
+    };
   }
-  return data;
 }
 
 export async function upsertUserPaper(input: {
