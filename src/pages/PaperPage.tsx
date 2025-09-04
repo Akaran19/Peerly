@@ -44,6 +44,7 @@ export default function PaperPage() {
     setAggregates(null);
     isLoadingRef.current = false;
 
+    console.log('PaperPage: useEffect triggered for', paperIdAndSlug);
     loadPaperData();
   }, [paperIdAndSlug]);
 
@@ -78,10 +79,12 @@ export default function PaperPage() {
             // If the returned paper has a proper UUID ID, redirect to the standard URL
             if (paperData.id && paperData.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
               const newUrl = paperUrl(paperData);
+              console.log('PaperPage: Redirecting to:', newUrl);
               navigate(newUrl, { replace: true });
               return;
             } else {
               // For web results or guest mode, use the paper data directly
+              console.log('PaperPage: Using paper data directly (no redirect)');
               setPaper(paperData);
               setAggregates(await dataClient.getAggregatesForPaper(paperData.id));
               setIsLookupLoading(false);
@@ -228,7 +231,9 @@ export default function PaperPage() {
       }
 
       // Load aggregates data
+      console.log('PaperPage: About to load aggregates for paperId:', paperId);
       const aggregatesData = await dataClient.getAggregatesForPaper(paperId);
+      console.log('PaperPage: Aggregates loaded:', aggregatesData);
 
       setPaper(paperData);
       setRichMetadata(richMetadata);
