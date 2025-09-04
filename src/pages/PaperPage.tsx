@@ -42,6 +42,8 @@ export default function PaperPage() {
     setPaper(null);
     setRichMetadata(null);
     setAggregates(null);
+    setError(null);
+    setIsLookupLoading(false);
     isLoadingRef.current = false;
 
     console.log('PaperPage: useEffect triggered for', paperIdAndSlug);
@@ -86,6 +88,7 @@ export default function PaperPage() {
               // Reset loading state after redirect
               setIsLoading(false);
               isLoadingRef.current = false;
+              setIsLookupLoading(false);
               return;
             } else {
               // For web results or guest mode, use the paper data directly
@@ -93,6 +96,8 @@ export default function PaperPage() {
               setPaper(paperData);
               setAggregates(await dataClient.getAggregatesForPaper(paperData.id));
               setIsLookupLoading(false);
+              setIsLoading(false);
+              isLoadingRef.current = false;
               return;
             }
           } else {
@@ -103,12 +108,16 @@ export default function PaperPage() {
               : `The DOI "${doi}" was not found in any academic databases (CrossRef, OpenAlex, or Semantic Scholar).\n\nThis could mean:\n• The DOI is incorrect or contains a typo\n• The paper was published in a journal not indexed by these services\n• The paper may be too old or from a very specialized field\n\nPlease verify the DOI is correct and try again.`;
             setError(errorMessage);
             setIsLookupLoading(false);
+            setIsLoading(false);
+            isLoadingRef.current = false;
             return;
           }
         } catch (doiError) {
           console.error('PaperPage: Error in DOI lookup', doiError);
           setNotFound(true);
           setIsLookupLoading(false);
+          setIsLoading(false);
+          isLoadingRef.current = false;
           return;
         }
       }
@@ -133,24 +142,31 @@ export default function PaperPage() {
               // Reset loading state after redirect
               setIsLoading(false);
               isLoadingRef.current = false;
+              setIsLookupLoading(false);
               return;
             } else {
               // For web results or guest mode, use the paper data directly
               setPaper(paperData);
               setAggregates(await dataClient.getAggregatesForPaper(paperData.id));
               setIsLookupLoading(false);
+              setIsLoading(false);
+              isLoadingRef.current = false;
               return;
             }
           } else {
             console.log('PaperPage: PMID lookup returned null');
             setError(`The PubMed ID "${pmid}" was not found in any academic databases. Please check that the PMID is correct and try again.`);
             setIsLookupLoading(false);
+            setIsLoading(false);
+            isLoadingRef.current = false;
             return;
           }
         } catch (pmidError) {
           console.error('PaperPage: Error in PMID lookup', pmidError);
           setNotFound(true);
           setIsLookupLoading(false);
+          setIsLoading(false);
+          isLoadingRef.current = false;
           return;
         }
       }
@@ -164,6 +180,8 @@ export default function PaperPage() {
 
       if (!paperId) {
         setNotFound(true);
+        setIsLoading(false);
+        isLoadingRef.current = false;
         return;
       }
 
@@ -171,6 +189,8 @@ export default function PaperPage() {
 
       if (!paperData || !paperData.id) {
         setNotFound(true);
+        setIsLoading(false);
+        isLoadingRef.current = false;
         return;
       }
 
@@ -184,8 +204,8 @@ export default function PaperPage() {
           // Reset loading state after redirect
           setIsLoading(false);
           isLoadingRef.current = false;
+          return;
         }
-        return;
       }
 
       // Fetch rich metadata from multiple APIs for display (only if not already stored)
@@ -253,7 +273,10 @@ export default function PaperPage() {
     } catch (error) {
       console.error('PaperPage: Error loading paper data', error);
       setNotFound(true);
+      setIsLoading(false);
+      isLoadingRef.current = false;
     } finally {
+      // Ensure loading state is reset for the main success path
       setIsLoading(false);
       isLoadingRef.current = false;
     }
