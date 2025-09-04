@@ -25,6 +25,23 @@ const supabaseUserPapers = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISH
   // Note: No accessToken function, so it won't send JWT tokens
 });
 
+// Create a separate supabase client for profile queries that doesn't use JWT
+const supabaseProfiles = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    storage: localStorage,
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce'
+  },
+  global: {
+    headers: {
+      'apikey': SUPABASE_PUBLISHABLE_KEY
+    }
+  }
+  // Note: No accessToken function, so it won't send JWT tokens
+});
+
 // Helper to check if user is in guest mode
 function isGuestMode() {
   return localStorage.getItem('peerly_guest_mode') === 'true';
@@ -48,7 +65,7 @@ export async function getCurrentUserId(clerkUserId?: string) {
   try {
     // First, try to find existing profile
     console.log('Looking for existing profile with clerk_id:', clerkUserId);
-    const { data: existingProfile, error: findError } = await supabase
+    const { data: existingProfile, error: findError } = await supabaseProfiles
       .from('profiles')
       .select('id')
       .eq('clerk_id', clerkUserId)
@@ -63,7 +80,7 @@ export async function getCurrentUserId(clerkUserId?: string) {
 
     // If profile doesn't exist, create it using direct queries instead of RPC
     console.log('Profile not found, creating new profile');
-    const { error: createError } = await supabase
+    const { error: createError } = await supabaseProfiles
       .from('profiles')
       .insert({
         clerk_id: clerkUserId,
@@ -78,7 +95,7 @@ export async function getCurrentUserId(clerkUserId?: string) {
     }
 
     // Fetch the newly created profile
-    const { data: newProfile, error: fetchError } = await supabase
+    const { data: newProfile, error: fetchError } = await supabaseProfiles
       .from('profiles')
       .select('id')
       .eq('clerk_id', clerkUserId)
@@ -101,7 +118,7 @@ export async function getCurrentUserProfile(clerkUserId?: string) {
   const userId = await getCurrentUserId(clerkUserId);
   if (!userId) return null;
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseProfiles
     .from('profiles')
     .select('*')
     .eq('id', userId)
@@ -410,7 +427,7 @@ export async function upsertPaper(paper: {
   journal?: string;
   meta?: any;
 }) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseUserPapers
     .from('papers')
     .upsert(paper, { onConflict: 'doi' })
     .select()
@@ -421,7 +438,7 @@ export async function upsertPaper(paper: {
 }
 
 export async function getPaper(id: string) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseUserPapers
     .from('papers')
     .select('*')
     .eq('id', id)
@@ -435,7 +452,7 @@ export async function getPaper(id: string) {
 }
 
 export async function searchPapers(query: string, limit = 20) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseUserPapers
     .from('papers')
     .select('*')
     .or(`title.ilike.%${query}%,abstract.ilike.%${query}%,journal.ilike.%${query}%`)
@@ -450,7 +467,7 @@ export async function searchPapers(query: string, limit = 20) {
 
 export async function getRecentPapers(limit = 9, offset = 0) {
   // First, get the total count
-  const { count: totalCount, error: countError } = await supabase
+  const { count: totalCount, error: countError } = await supabaseUserPapers
     .from('papers')
     .select('*', { count: 'exact', head: true });
 
@@ -460,7 +477,7 @@ export async function getRecentPapers(limit = 9, offset = 0) {
   }
 
   // Then get the paginated data
-  const { data, error } = await supabase
+  const { data, error } = await supabaseUserPapers
     .from('papers')
     .select('*')
     .order('created_at', { ascending: false })

@@ -521,7 +521,7 @@ export const dataClient = {
 
   async getUserByHandle(handle: string): Promise<User | null> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseUserPapers
         .from('profiles')
         .select('*')
         .eq('handle', handle)

@@ -72,7 +72,7 @@ async function handleUserCreated(userData: ClerkWebhookEvent['data']) {
     .from('profiles')
     .insert({
       id: userData.id,
-      email: userData.email_addresses[0]?.email_address,
+      clerk_id: userData.id,
       name: userData.first_name && userData.last_name
         ? `${userData.first_name} ${userData.last_name}`
         : userData.first_name || userData.last_name || userData.username,
@@ -94,7 +94,7 @@ async function handleUserUpdated(userData: ClerkWebhookEvent['data']) {
   const { error } = await supabase
     .from('profiles')
     .update({
-      email: userData.email_addresses[0]?.email_address,
+      clerk_id: userData.id,
       name: userData.first_name && userData.last_name
         ? `${userData.first_name} ${userData.last_name}`
         : userData.first_name || userData.last_name || userData.username,

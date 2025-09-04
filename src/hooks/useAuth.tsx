@@ -1,6 +1,5 @@
-import { createContext, useEffect, useState, ReactNode, useMemo, useCallback, useContext } from 'react';
-import { useUser, useClerk, useAuth as useClerkAuth } from '@clerk/clerk-react';
-import { supabase, setTokenProvider } from '@/integrations/supabase/client';
+import { createContext, useState, ReactNode, useMemo, useCallback, useContext } from 'react';
+import { useUser, useClerk } from '@clerk/clerk-react';
 import { setGuestMode } from '@/lib/dataClient';
 
 // Define a User-like interface that matches Clerk's user structure
@@ -42,7 +41,6 @@ export function useAuth() {
 export default function AuthProvider({ children }: { children: ReactNode }) {
   const { user: clerkUser, isLoaded } = useUser();
   const { signOut: clerkSignOut } = useClerk();
-  const { getToken } = useClerkAuth();
   const [isGuest, setIsGuest] = useState(false);
 
   console.log('AuthProvider: clerkUser:', !!clerkUser, 'isLoaded:', isLoaded);
@@ -58,37 +56,6 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   } : null;
 
   const loading = !isLoaded;
-
-  const upsertProfile = useCallback(async (user: ClerkUser) => {
-    try {
-      const handle = (user.username ||
-                      user.emailAddresses[0]?.emailAddress?.split('@')[0] ||
-                      user.id.slice(0, 8)).toLowerCase();
-
-      const name = user.firstName && user.lastName
-        ? `${user.firstName} ${user.lastName}`
-        : user.firstName || user.lastName || handle;
-
-      // Use RPC to get or create profile and get the UUID
-      const { data: profileId, error } = await supabase
-        .rpc('get_or_create_profile', {
-          p_clerk_id: user.id,
-          p_handle: handle,
-          p_image: user.imageUrl || null,
-          p_name: name
-        });
-
-      if (error) {
-        console.error('Error getting/creating profile:', error);
-        return null;
-      }
-
-      return profileId;
-    } catch (error) {
-      console.error('Error upserting profile:', error);
-      return null;
-    }
-  }, []);
 
   const signInWithGoogle = useCallback(async () => {
     console.log('Google sign in handled by Clerk SignIn component');
@@ -115,9 +82,6 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await clerkSignOut();
 
-      // Clear token provider
-      setTokenProvider(async () => null);
-
       // Clear guest mode when signing out
       localStorage.removeItem('peerly_guest_mode');
       setIsGuest(false);
@@ -131,9 +95,6 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   }, [clerkSignOut]);
 
   const continueAsGuest = useCallback(() => {
-    // Clear token provider when switching to guest mode
-    setTokenProvider(async () => null);
-    
     setIsGuest(true);
     setGuestMode(true);
     localStorage.setItem('peerly_guest_mode', 'true');
@@ -145,31 +106,6 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     setGuestMode(false);
     localStorage.removeItem('peerly_guest_mode');
   }, []);
-
-  useEffect(() => {
-    const setupTokenProvider = () => {
-      if (clerkUser) {
-        // Set up token provider for authenticated users
-        setTokenProvider(async () => {
-          try {
-            const token = await getToken();
-            console.log('Providing Clerk JWT token:', !!token);
-            return token ?? null;
-          } catch (error) {
-            console.error('Error getting Clerk token:', error);
-            return null;
-          }
-        });
-      } else {
-        // Clear token provider when user is not signed in
-        setTokenProvider(async () => null);
-      }
-    };
-
-    if (isLoaded) {
-      setupTokenProvider();
-    }
-  }, [clerkUser, isLoaded, getToken]);
 
   const contextValue = useMemo(() => ({
     user,
