@@ -68,7 +68,7 @@ export async function getCurrentUserId(clerkUserId?: string) {
     const { data: existingProfile, error: findError } = await supabaseProfiles
       .from('profiles')
       .select('id')
-      .eq('id', clerkUserId)
+      .eq('clerk_id', clerkUserId)
       .single();
 
     console.log('Existing profile query result:', { existingProfile, findError });
@@ -83,7 +83,6 @@ export async function getCurrentUserId(clerkUserId?: string) {
     const { error: createError } = await supabaseProfiles
       .from('profiles')
       .insert({
-        id: clerkUserId,
         clerk_id: clerkUserId,
         handle: `user_${clerkUserId.slice(0, 8)}`,
         name: `User ${clerkUserId.slice(0, 8)}`,
@@ -100,7 +99,7 @@ export async function getCurrentUserId(clerkUserId?: string) {
     const { data: newProfile, error: fetchError } = await supabaseProfiles
       .from('profiles')
       .select('id')
-      .eq('id', clerkUserId)
+      .eq('clerk_id', clerkUserId)
       .single();
 
     if (fetchError || !newProfile) {
@@ -124,7 +123,7 @@ export async function getCurrentUserProfile(clerkUserId?: string) {
     const { data, error } = await supabaseProfiles
       .from('profiles')
       .select('*')
-      .eq('id', clerkUserId)
+      .eq('clerk_id', clerkUserId)
       .single();
 
     if (error) {
