@@ -23,15 +23,14 @@ export default function UserPage() {
 
   const loadUserData = async () => {
     try {
-      const [userData, papersData] = await Promise.all([
-        dataClient.getUserByHandle(handle),
-        dataClient.listUserPapers('1') // Would use actual user ID in real app
-      ]);
+      const userData = await dataClient.getUserByHandle(handle);
 
       if (!userData) {
         setNotFound(true);
         return;
       }
+
+      const papersData = await dataClient.listUserPapers(userData.id);
 
       setUser(userData);
       setUserPapers(papersData);

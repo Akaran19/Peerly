@@ -1,13 +1,14 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Paper, PaperAggregates } from '@/types';
 import { paperUrl } from '@/lib/routing';
 import { formatDOIUrl } from '@/lib/doi';
-import { ExternalLink, Users, Calendar, BookOpen, Star, Plus, Heart } from 'lucide-react';
+import { ExternalLink, Users, Calendar, BookOpen, Star, Plus, Heart, Loader2, TrendingUp } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { RatingStars } from '@/components/RatingStars';
 import { PaperActions } from '@/components/PaperActions';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { dataClient } from '@/lib/dataClient';
 
 interface PaperCardProps {
   paper: Paper;
@@ -18,35 +19,65 @@ interface PaperCardProps {
 
 export function PaperCard({ paper, showAbstract = false, aggregates, showActions = false }: PaperCardProps) {
   const [showActionBar, setShowActionBar] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
+
   // Helper function to generate Google Scholar URL for author search
   const getGoogleScholarUrl = (authorName: string): string => {
     const encodedAuthor = encodeURIComponent(`"${authorName}"`);
     return `https://scholar.google.com/scholar?q=author:${encodedAuthor}`;
   };
 
+  // Handle paper navigation with loading
+  const handlePaperClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (isLoading) return;
+
+    setIsLoading(true);
+    try {
+      // If paper has a DOI, try to fetch/update the paper data first
+      if (paper.doi) {
+        const paperData = await dataClient.lookupPaperByDOI(paper.doi);
+        if (paperData) {
+          // Navigate to the paper page
+          const paperLink = getPaperLink();
+          navigate(paperLink);
+          return;
+        }
+      }
+
+      // If no DOI or lookup failed, navigate directly
+      const paperLink = getPaperLink();
+      navigate(paperLink);
+    } catch (error) {
+      console.error('Error loading paper data:', error);
+      // Navigate anyway if there's an error
+      const paperLink = getPaperLink();
+      navigate(paperLink);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Determine the correct link URL based on paper data
   const getPaperLink = () => {
-    // If paper has a DOI, use DOI resolver route
+    // If paper has a DOI, use the new DOI-based routing
     if (paper.doi) {
-      return `/paper/doi/${encodeURIComponent(paper.doi)}`;
+      return `/paper/doi-${encodeURIComponent(paper.doi)}`;
     }
-    // For papers without DOI, use external resolver
-    if (paper.id) {
-      // Parse external ID to extract source and id
-      if (paper.id.startsWith('https://openalex.org/')) {
-        const openAlexId = paper.id.replace('https://openalex.org/', '');
-        return `/paper/external/openalex/${encodeURIComponent(openAlexId)}`;
-      } else if (paper.id.startsWith('https://doi.org/')) {
-        // Fallback for DOI format
-        const doi = paper.id.replace('https://doi.org/', '');
-        return `/paper/doi/${encodeURIComponent(doi)}`;
-      } else {
-        // For other external sources, use a generic approach
-        return `/paper/external/other/${encodeURIComponent(paper.id)}`;
-      }
+    
+    // For papers with regular UUID IDs, use the standard paper URL
+    if (paper.id && paper.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+      return paperUrl(paper);
     }
-    // Fallback: search-based approach (shouldn't happen)
-    return `/paper/external/other/${encodeURIComponent(paper.title || 'unknown')}`;
+    
+    // For web results or other temporary IDs, try to use DOI if available
+    if (paper.doi) {
+      return `/paper/doi-${encodeURIComponent(paper.doi)}`;
+    }
+    
+    // Fallback: use the paper ID as-is (might not work but better than nothing)
+    return `/paper/${encodeURIComponent(paper.id || paper.title || 'unknown')}`;
   };
 
   // Get external link for papers without DOI
@@ -67,14 +98,15 @@ export function PaperCard({ paper, showAbstract = false, aggregates, showActions
     <div className="academic-card p-6 space-y-4 relative group">
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-4">
-          <Link
-            to={getPaperLink()}
-            className="flex-1 group min-w-0"
+          <div
+            onClick={handlePaperClick}
+            className="flex-1 group min-w-0 cursor-pointer"
           >
-            <h3 className="text-lg md:text-xl font-semibold leading-tight group-hover:text-primary transition-colors pr-2">
+            <h3 className="text-lg md:text-xl font-semibold leading-tight group-hover:text-primary transition-colors pr-2 flex items-center gap-2">
               {paper.title}
+              {isLoading && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
             </h3>
-          </Link>
+          </div>
           <a
             href={getExternalLink()}
             target="_blank"
@@ -116,6 +148,13 @@ export function PaperCard({ paper, showAbstract = false, aggregates, showActions
               <span>{paper.referencesCount} refs</span>
             </div>
           )}
+
+          {paper.citationCount && paper.citationCount > 0 && (
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <TrendingUp className="w-4 h-4" />
+              <span>{paper.citationCount} citations</span>
+            </div>
+          )}
         </div>
 
         {(paper.journal || paper.conference) && (
@@ -153,12 +192,20 @@ export function PaperCard({ paper, showAbstract = false, aggregates, showActions
       </div>
 
       <div className="pt-2 border-t">
-        <Link 
-          to={getPaperLink()}
-          className="text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm"
+        <button
+          onClick={handlePaperClick}
+          disabled={isLoading}
+          className="text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm disabled:opacity-50 flex items-center gap-2"
         >
-          View details →
-        </Link>
+          {isLoading ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Loading...
+            </>
+          ) : (
+            'View details →'
+          )}
+        </button>
       </div>
 
       {/* Sticky Action Bar */}

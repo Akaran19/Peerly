@@ -12,8 +12,19 @@ export const paperUrl = (paper: { id: string; title: string }): string => {
   return `/paper/${paper.id}-${slugify(paper.title)}`;
 };
 
-export const paperDoiUrl = (doi: string): string => `/paper/doi/${encodeURIComponent(doi)}`;
-export const paperPmidUrl = (pmid: string): string => `/paper/pmid/${encodeURIComponent(pmid)}`;
+export const paperDoiUrl = (doi: string): string => {
+  // Create a temporary ID for DOI-based papers
+  // Replace dots with - and slashes with _ to avoid URL conflicts
+  const encodedDoi = doi.replace(/\./g, '-').replace(/\//g, '_');
+  const tempId = `doi-${encodedDoi}`;
+  return `/paper/${tempId}`;
+};
+
+export const paperPmidUrl = (pmid: string): string => {
+  // Create a temporary ID for PMID-based papers
+  const tempId = `pmid-${pmid}`;
+  return `/paper/${tempId}`;
+};
 
 // Extract paper ID from slug
 export const extractPaperId = (paperIdAndSlug: string): string => {

@@ -6,11 +6,11 @@ import { PaperCard } from '@/components/PaperCard';
 import { PaperCardSkeleton } from '@/components/PaperCardSkeleton';
 import { AuthButton } from '@/components/AuthButton';
 import { getRecentPapers, getTrendingPapers, getPaperAggregates } from '@/lib/supabaseHelpers';
-import { mapDatabasePaperToPaper } from '@/lib/dataClient';
+import { mapDatabasePaperToPaper, dataClient } from '@/lib/dataClient';
 import { paperDoiUrl, paperPmidUrl } from '@/lib/routing';
 import { GraduationCap, TrendingUp, Clock, Flame, AlertCircle, X, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription } from '../components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import Header from '@/components/Header';
 
@@ -107,14 +107,12 @@ export default function HomePage() {
           const aggregate = await getPaperAggregates(paper.id);
           aggregates[paper.id] = aggregate;
         } catch (error) {
-          console.warn(`Failed to fetch aggregates for paper ${paper.id}:`, error);
           // Set default aggregate data
           aggregates[paper.id] = { avgRating: 0, count: 0, latest: [] };
         }
       }
       setPaperAggregates(aggregates);
     } catch (error) {
-      console.error('Error loading papers:', error);
       // Set empty array on error to prevent white screen
       setPapers([]);
       setPaperAggregates({});
@@ -124,8 +122,31 @@ export default function HomePage() {
   };  const displayedPapers = papers;
 
   const handleSearch = (query: string, mode: 'doi' | 'pmid' | 'keywords') => {
+    if (mode === 'keywords' && query.trim()) {
+      // Perform keyword search
+      performKeywordSearch(query.trim());
+    }
     // DOI and PMID handled by SearchBar navigation
-    // Keywords search was removed during cleanup
+  };
+
+  const performKeywordSearch = async (query: string) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const searchResults = await dataClient.keywordSearchPapers(query);
+      setPapers(searchResults);
+      setPaperAggregates({});
+      setViewMode('recent'); // Switch to recent view to show search results
+      setCurrentPage(1);
+      setTotalPages(1);
+      setTotalPapers(searchResults.length);
+    } catch (error) {
+      console.error('Search failed:', error);
+      setError({ type: 'search-error', message: 'Search failed. Please try again.' });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handlePageChange = (page: number) => {
@@ -207,7 +228,7 @@ export default function HomePage() {
           </div>
         </div>        {/* Search Section */}
         <div className="max-w-2xl mx-auto mb-6 md:mb-8 px-4 md:px-0">
-          <SearchBar onSearch={handleSearch} />
+          <SearchBar onSearch={handleSearch} isSearching={isLoading} />
           <p className="text-sm text-muted-foreground text-center mt-2">
             Choose DOI, PMID, or Keywords before searching.
           </p>

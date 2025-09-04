@@ -3,6 +3,7 @@
 // Based on: https://api.openalex.org/, https://api.crossref.org/, https://api.semanticscholar.org/
 
 import { Paper } from '@/types';
+import { normalizeDOI } from './doi';
 
 // Enhanced author interface
 export interface Author {
@@ -242,31 +243,114 @@ function extractSemanticScholarMetadata(paper: SemanticScholarPaper): Partial<Mu
   return metadata;
 }
 
+// Global cache for API call timestamps to prevent rapid successive calls
+const crossrefApiCallCache = new Map<string, number>();
+// Global rate limit tracker
+let lastApiCallTime = 0;
+const MIN_API_CALL_INTERVAL = 2000; // 2 seconds between any API calls
+
 // Main function to fetch paper by DOI using multiple APIs
 export async function getPaperByDOI(doiRaw: string): Promise<MultiApiPaper> {
-  const doi = doiRaw.trim().replace(/^doi:/i, "").toLowerCase();
+  const doi = normalizeDOI(doiRaw);
   const out: MultiApiPaper = { doi, sources: [] };
+  console.log('crossref: Fetching DOI', doi);
+
+  // Validate DOI format before proceeding
+  if (!isValidDOIBeforeLookup(doi)) {
+    console.log('crossref: Invalid DOI format:', doi);
+    return out; // Return empty result for invalid DOI
+  }
+
+  // Check global rate limit first
+  const now = Date.now();
+  const timeSinceLastCall = now - lastApiCallTime;
+  if (timeSinceLastCall < MIN_API_CALL_INTERVAL) {
+    const waitTime = MIN_API_CALL_INTERVAL - timeSinceLastCall;
+    console.log(`crossref: Rate limiting - waiting ${waitTime}ms before API call`);
+    await new Promise(resolve => setTimeout(resolve, waitTime));
+  }
+
+  // Check if we recently made an API call for this specific DOI
+  const lastDoiCallTime = crossrefApiCallCache.get(doi);
+  if (lastDoiCallTime && (now - lastDoiCallTime) < 60000) { // 60 second cooldown per DOI
+    console.log('crossref: DOI API call too recent, returning empty result');
+    return out; // Return empty result to avoid rate limits
+  }
+
+  // Update both global and DOI-specific timestamps
+  lastApiCallTime = Date.now();
+  crossrefApiCallCache.set(doi, lastApiCallTime);
 
   // Make all primary API calls concurrently for better performance
   const apiPromises = [
     // OpenAlex (primary - most reliable for basic metadata)
     fetch(`https://api.openalex.org/works/doi:${encodeURIComponent(doi)}`, {
       headers: { "User-Agent": UA }
-    }).then(r => r.ok ? r.json() : null).catch(() => null),
+    }).then(async r => {
+      console.log('crossref: OpenAlex response status:', r.status, 'for DOI:', doi);
+      if (!r.ok) {
+        const text = await r.text();
+        console.log('crossref: OpenAlex error response:', text);
+        // If we get a 429 (rate limit), increase the global cooldown
+        if (r.status === 429) {
+          console.log('crossref: Rate limit hit on OpenAlex, increasing cooldown');
+          lastApiCallTime = Date.now() + 10000; // Add 10 seconds to cooldown
+        }
+      }
+      return r.ok ? r.json() : null;
+    }).catch((error) => {
+      console.log('crossref: OpenAlex fetch error:', error);
+      return null;
+    }),
 
     // CrossRef (bibliographic fallback)
     fetch(`https://api.crossref.org/works/${encodeURIComponent(doi)}`, {
       headers: { "User-Agent": UA }
-    }).then(r => r.ok ? r.json() : null).catch(() => null),
+    }).then(async r => {
+      console.log('crossref: CrossRef response status:', r.status, 'for DOI:', doi);
+      if (!r.ok) {
+        const text = await r.text();
+        console.log('crossref: CrossRef error response:', text);
+        // If we get a 429 (rate limit), increase the global cooldown
+        if (r.status === 429) {
+          console.log('crossref: Rate limit hit on CrossRef, increasing cooldown');
+          lastApiCallTime = Date.now() + 10000; // Add 10 seconds to cooldown
+        }
+      }
+      return r.ok ? r.json() : null;
+    }).catch((error) => {
+      console.log('crossref: CrossRef fetch error:', error);
+      return null;
+    }),
 
     // Semantic Scholar (enrichment)
-    fetch(`https://api.semanticscholar.org/graph/v1/paper/DOI:${encodeURIComponent(doi)}?fields=title,abstract,authors.name,citationCount,year,venue,url,openAccessPdf`, {
-      headers: S2_API_KEY ? { "x-api-key": S2_API_KEY } : {}
-    }).then(r => r.ok ? r.json() : null).catch(() => null),
+    fetch(`/api/semanticscholar/graph/v1/paper/DOI:${encodeURIComponent(doi)}?fields=title,abstract,authors.name,citationCount,year,venue,url,openAccessPdf`, {
+      headers: S2_API_KEY && S2_API_KEY !== "your_semantic_scholar_api_key_here" ? { "x-api-key": S2_API_KEY } : {}
+    }).then(async r => {
+      console.log('crossref: Semantic Scholar response status:', r.status, 'for DOI:', doi);
+      if (!r.ok) {
+        const text = await r.text();
+        console.log('crossref: Semantic Scholar error response:', text);
+        // If we get a 429 (rate limit), increase the global cooldown
+        if (r.status === 429) {
+          console.log('crossref: Rate limit hit, increasing cooldown');
+          lastApiCallTime = Date.now() + 10000; // Add 10 seconds to cooldown
+        }
+      }
+      return r.ok ? r.json() : null;
+    }).catch((error) => {
+      console.log('crossref: Semantic Scholar fetch error:', error);
+      return null;
+    }),
   ];
 
   // Wait for all primary APIs to complete
   const [openAlexResult, crossRefResult, semanticScholarResult] = await Promise.allSettled(apiPromises);
+  console.log('crossref: API results', {
+    openAlex: openAlexResult.status === 'fulfilled' ? !!openAlexResult.value : 'failed',
+    crossRef: crossRefResult.status === 'fulfilled' ? !!crossRefResult.value : 'failed',
+    semanticScholar: semanticScholarResult.status === 'fulfilled' ? !!semanticScholarResult.value : 'failed'
+  });
 
   // Process results from concurrent API calls
   // OpenAlex result
@@ -311,6 +395,8 @@ export async function getPaperByDOI(doiRaw: string): Promise<MultiApiPaper> {
     Object.assign(out, semanticScholarMeta);
   }
 
+  console.log('crossref: Final paper data', { title: out.title, sources: out.sources });
+
   // If we have basic metadata, start background enrichment
   if (out.title && out.authors?.length) {
     // Background enrichment for citing DOIs and other slow operations
@@ -331,7 +417,7 @@ export async function getPaperByDOI(doiRaw: string): Promise<MultiApiPaper> {
 
         // Additional enrichment could go here (e.g., more citation data, etc.)
       } catch (error) {
-        console.warn('Background enrichment failed:', error);
+        // Background enrichment failed silently
       }
     }, 0); // Run immediately in background
   }
@@ -369,9 +455,115 @@ export const extractPaperMetadata = (paper: MultiApiPaper): DisplayPaperMetadata
 
 // Validate DOI format before making API call
 export const isValidDOIBeforeLookup = (doi: string): boolean => {
-  const doiRegex = /^10\.\d{4,}\/.+/;
-  return doiRegex.test(doi);
+  const doiPattern = /^10\.\d{4,}\/\S+$/;
+  return doiPattern.test(doi);
 };
+
+// Validate PubMed ID format
+export const isValidPMID = (pmid: string): boolean => {
+  return /^\d+$/.test(pmid.trim()) && pmid.trim().length >= 1;
+};
+
+// Convert PubMed ID to DOI using NCBI E-utilities
+export async function convertPMIDtoDOI(pmid: string): Promise<string | null> {
+  try {
+    const response = await fetch(
+      `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${pmid}&retmode=xml&rettype=abstract`,
+      { headers: { "User-Agent": UA } }
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const xmlText = await response.text();
+    
+    // Extract DOI from the XML response
+    const doiMatch = xmlText.match(/<ELocationID[^>]*EIdType="doi"[^>]*>([^<]+)<\/ELocationID>/);
+    if (doiMatch) {
+      return doiMatch[1];
+    }
+
+    // Alternative: try to find DOI in the article ID list
+    const articleIdMatch = xmlText.match(/<ArticleId[^>]*IdType="doi"[^>]*>([^<]+)<\/ArticleId>/);
+    if (articleIdMatch) {
+      return articleIdMatch[1];
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error converting PMID to DOI:', error);
+    return null;
+  }
+}
+
+// Get paper by PubMed ID
+export async function getPaperByPMID(pmid: string): Promise<MultiApiPaper | null> {
+  try {
+    // First try to convert PMID to DOI
+    const doi = await convertPMIDtoDOI(pmid);
+    if (doi) {
+      // If we got a DOI, use the existing DOI lookup
+      return await getPaperByDOI(doi);
+    }
+
+    // If no DOI found, try to get basic info from PubMed
+    const response = await fetch(
+      `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${pmid}&retmode=xml&rettype=abstract`,
+      { headers: { "User-Agent": UA } }
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const xmlText = await response.text();
+    
+    // Parse basic information from PubMed XML
+    const titleMatch = xmlText.match(/<ArticleTitle>([^<]+)<\/ArticleTitle>/);
+    const abstractMatch = xmlText.match(/<AbstractText[^>]*>([^<]+)<\/AbstractText>/);
+    const yearMatch = xmlText.match(/<PubDate[^>]*>.*?<Year[^>]*>([^<]+)<\/Year>.*?<\/PubDate>/);
+    const journalMatch = xmlText.match(/<Title>([^<]+)<\/Title>/);
+    
+    // Extract authors
+    const authorMatches = xmlText.match(/<Author[^>]*>.*?<LastName[^>]*>([^<]+)<\/LastName>.*?<ForeName[^>]*>([^<]+)<\/ForeName>.*?<\/Author>/g);
+    const authors: Author[] = [];
+    
+    if (authorMatches) {
+      for (const authorMatch of authorMatches) {
+        const lastNameMatch = authorMatch.match(/<LastName[^>]*>([^<]+)<\/LastName>/);
+        const foreNameMatch = authorMatch.match(/<ForeName[^>]*>([^<]+)<\/ForeName>/);
+        
+        if (lastNameMatch && foreNameMatch) {
+          authors.push({
+            name: `${foreNameMatch[1]} ${lastNameMatch[1]}`,
+            given: foreNameMatch[1],
+            family: lastNameMatch[1]
+          });
+        }
+      }
+    }
+
+    if (titleMatch) {
+      const paper: MultiApiPaper = {
+        doi: `pmid:${pmid}`, // Use PMID as identifier since no DOI
+        title: titleMatch[1],
+        authors: authors,
+        abstract: abstractMatch ? abstractMatch[1] : undefined,
+        year: yearMatch ? parseInt(yearMatch[1]) : undefined,
+        journal: journalMatch ? journalMatch[1] : undefined,
+        sources: ['pubmed']
+      };
+
+      return paper;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error fetching paper by PMID:', error);
+    return null;
+  }
+}
 
 // Get multiple papers (batch processing)
 export const fetchMultiplePapers = async (dois: string[]): Promise<Map<string, MultiApiPaper>> => {
@@ -387,7 +579,7 @@ export const fetchMultiplePapers = async (dois: string[]): Promise<Map<string, M
         const paper = await getPaperByDOI(doi);
         results.set(doi, paper);
       } catch (error) {
-        console.warn(`Failed to fetch DOI ${doi}:`, error);
+        // Failed to fetch DOI silently
       }
     });
 
@@ -402,5 +594,153 @@ export const fetchMultiplePapers = async (dois: string[]): Promise<Map<string, M
   return results;
 };
 
-// Legacy function name for backward compatibility
-export const fetchPaperFromCrossRef = getPaperByDOI;
+// Search papers by keywords using multiple APIs
+export async function searchPapersByKeywords(query: string, limit = 20): Promise<MultiApiPaper[]> {
+  const results: MultiApiPaper[] = [];
+  const seenDois = new Set<string>();
+
+  try {
+    // Search CrossRef first (good for academic papers)
+    const crossRefResponse = await fetch(
+      `https://api.crossref.org/works?query=${encodeURIComponent(query)}&rows=${limit}&sort=relevance`,
+      { headers: { "User-Agent": UA } }
+    );
+
+    if (crossRefResponse.ok) {
+      const crossRefData = await crossRefResponse.json();
+      const crossRefPapers = crossRefData.message?.items || [];
+
+      for (const item of crossRefPapers) {
+        if (item.DOI && !seenDois.has(item.DOI) && isValidDOIBeforeLookup(item.DOI)) {
+          const paper: MultiApiPaper = {
+            doi: item.DOI,
+            title: item.title?.[0],
+            authors: normalizeAuthors(item.author || []),
+            abstract: item.abstract,
+            year: item.published?.['date-parts']?.[0]?.[0],
+            journal: item['container-title']?.[0],
+            publisher: item.publisher,
+            type: item.type,
+            sources: ['crossref']
+          };
+
+          if (item['is-referenced-by-count']) {
+            paper.citationCount = item['is-referenced-by-count'];
+          }
+
+          if (item['references-count']) {
+            paper.referencesCount = item['references-count'];
+          }
+
+          results.push(paper);
+          seenDois.add(item.DOI);
+
+          if (results.length >= limit) break;
+        }
+      }
+    }
+
+    // If we don't have enough results, try OpenAlex
+    if (results.length < limit) {
+      const openAlexResponse = await fetch(
+        `https://api.openalex.org/works?search=${encodeURIComponent(query)}&per-page=${limit - results.length}&sort=relevance_score:desc`,
+        { headers: { "User-Agent": UA } }
+      );
+
+      if (openAlexResponse.ok) {
+        const openAlexData = await openAlexResponse.json();
+        const openAlexPapers = openAlexData.results || [];
+
+        for (const work of openAlexPapers) {
+          if (work.doi && !seenDois.has(work.doi) && isValidDOIBeforeLookup(work.doi)) {
+            const paper: MultiApiPaper = {
+              doi: work.doi,
+              title: work.title,
+              authors: normalizeAuthors((work.authorships || []).map((a: any) => ({ name: a.author?.display_name }))),
+              abstract: reconstructOpenAlexAbstract(work.abstract_inverted_index),
+              year: work.publication_year,
+              citationCount: work.cited_by_count,
+              sources: ['openalex']
+            };
+
+            // Extract journal/conference info
+            if (work.primary_location?.source) {
+              const source = work.primary_location.source;
+              const venueName = source.display_name;
+              const isConference = source.type === 'conference' ||
+                                  venueName?.toLowerCase().includes('conference') ||
+                                  venueName?.toLowerCase().includes('proceedings');
+
+              if (isConference) {
+                paper.conference = venueName;
+              } else {
+                paper.journal = venueName;
+              }
+            }
+
+            results.push(paper);
+            seenDois.add(work.doi);
+
+            if (results.length >= limit) break;
+          }
+        }
+      }
+    }
+
+    // If still not enough results, try Semantic Scholar
+    if (results.length < limit) {
+      const semanticScholarResponse = await fetch(
+        `/api/semanticscholar/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=${limit - results.length}&fields=title,abstract,authors,venue,year,citationCount,url,openAccessPdf,externalIds`,
+        { headers: S2_API_KEY && S2_API_KEY !== "your_semantic_scholar_api_key_here" ? { "x-api-key": S2_API_KEY } : {} }
+      );
+
+      if (semanticScholarResponse.ok) {
+        const semanticScholarData = await semanticScholarResponse.json();
+        const semanticScholarPapers = semanticScholarData.data || [];
+
+        for (const paper of semanticScholarPapers) {
+          if (paper.paperId && !seenDois.has(paper.paperId)) {
+            // For Semantic Scholar, try to get the actual DOI if available
+            let doiToUse = paper.paperId;
+            if (paper.externalIds?.DOI && isValidDOIBeforeLookup(paper.externalIds.DOI)) {
+              doiToUse = paper.externalIds.DOI;
+            } else if (!isValidDOIBeforeLookup(paper.paperId)) {
+              // Skip if neither paperId nor DOI is a valid DOI format
+              continue;
+            }
+
+            const multiApiPaper: MultiApiPaper = {
+              doi: doiToUse,
+              title: paper.title,
+              authors: normalizeAuthors((paper.authors || []).map((a: any) => ({ name: a.name }))),
+              abstract: paper.abstract,
+              year: paper.year,
+              journal: paper.venue,
+              citationCount: paper.citationCount,
+              htmlUrl: paper.url,
+              pdfUrl: paper.openAccessPdf?.url,
+              sources: ['semanticscholar']
+            };
+
+            results.push(multiApiPaper);
+            seenDois.add(doiToUse);
+
+            if (results.length >= limit) break;
+          }
+        }
+      }
+    }
+
+  } catch (error) {
+    console.error('Error searching papers by keywords:', error);
+  }
+
+  // Sort results by citation count in descending order (highest citations first)
+  return results
+    .sort((a, b) => {
+      const aCitations = a.citationCount || 0;
+      const bCitations = b.citationCount || 0;
+      return bCitations - aCitations;
+    })
+    .slice(0, limit);
+}

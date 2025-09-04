@@ -2,8 +2,16 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = "https://xaibkgwkdzzipntvzldg.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhaWJrZ3drZHp6aXBudHZ6bGRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3MjEzNzEsImV4cCI6MjA3MjI5NzM3MX0.dj2lWGT1IzTNhno3uEVRd2eANWw42mLJvoq6V_-FHm0";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://xaibkgwkdzzipntvzldg.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhaWJrZ3drZHp6aXBudHZ6bGRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3MjEzNzEsImV4cCI6MjA3MjI5NzM3MX0.dj2lWGT1IzTNhno3uEVRd2eANWw42mLJvoq6V_-FHm0";
+
+// Token provider for Clerk integration
+let tokenProvider: (() => Promise<string | null>) | null = null;
+
+// Function to set the token provider (called from auth context)
+export function setTokenProvider(provider: () => Promise<string | null>) {
+  tokenProvider = provider;
+}
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
@@ -15,5 +23,22 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     autoRefreshToken: true,
     detectSessionInUrl: true,
     flowType: 'pkce'
+  },
+  global: {
+    headers: {
+      'apikey': SUPABASE_PUBLISHABLE_KEY
+    }
+  },
+  accessToken: async () => {
+    if (tokenProvider) {
+      return await tokenProvider();
+    }
+    return null;
   }
 });
+
+// Legacy function kept for backward compatibility (no longer needed)
+export function updateSupabaseAuth(token: string | null) {
+  // This function is deprecated - token is now handled automatically by accessToken option
+  console.log('updateSupabaseAuth called but is deprecated');
+}

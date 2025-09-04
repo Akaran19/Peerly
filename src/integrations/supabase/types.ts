@@ -17,38 +17,66 @@ export type Database = {
       papers: {
         Row: {
           abstract: string | null
+          authors: string[] | null
+          citation_count: number | null
+          conference: string | null
           created_at: string | null
           doi: string
+          html_url: string | null
           id: string
           journal: string | null
           meta: Json | null
+          pdf_url: string | null
+          published_date: string | null
+          publisher: string | null
+          references_count: number | null
           title: string
+          type: string | null
           year: number | null
         }
         Insert: {
           abstract?: string | null
+          authors?: string[] | null
+          citation_count?: number | null
+          conference?: string | null
           created_at?: string | null
           doi: string
+          html_url?: string | null
           id?: string
           journal?: string | null
           meta?: Json | null
+          pdf_url?: string | null
+          published_date?: string | null
+          publisher?: string | null
+          references_count?: number | null
           title: string
+          type?: string | null
           year?: number | null
         }
         Update: {
           abstract?: string | null
+          authors?: string[] | null
+          citation_count?: number | null
+          conference?: string | null
           created_at?: string | null
           doi?: string
+          html_url?: string | null
           id?: string
           journal?: string | null
           meta?: Json | null
+          pdf_url?: string | null
+          published_date?: string | null
+          publisher?: string | null
+          references_count?: number | null
           title?: string
+          type?: string | null
           year?: number | null
         }
         Relationships: []
       }
       profiles: {
         Row: {
+          clerk_id: string | null
           created_at: string | null
           handle: string | null
           id: string
@@ -56,6 +84,7 @@ export type Database = {
           name: string | null
         }
         Insert: {
+          clerk_id?: string | null
           created_at?: string | null
           handle?: string | null
           id: string
@@ -63,6 +92,7 @@ export type Database = {
           name?: string | null
         }
         Update: {
+          clerk_id?: string | null
           created_at?: string | null
           handle?: string | null
           id?: string
@@ -127,7 +157,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_clerk_user_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      get_or_create_profile: {
+        Args: {
+          p_clerk_id: string
+          p_handle?: string
+          p_image?: string
+          p_name?: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

@@ -73,18 +73,27 @@ export function SearchBar({
     setValidationError(error);
   }, [query, selectedMode]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('SearchBar: Form submitted', { selectedMode, query, validationError, isSubmitDisabled });
+    
     const trimmedQuery = query.trim();
 
-    if (!trimmedQuery || !selectedMode || validationError) return;
+    if (!trimmedQuery || !selectedMode || validationError) {
+      console.log('SearchBar: Form submission blocked', { trimmedQuery: !!trimmedQuery, selectedMode, validationError });
+      return;
+    }
+
+    console.log('SearchBar: Submitting search', { selectedMode, trimmedQuery });
 
     switch (selectedMode) {
       case 'doi':
         const normalizedDOI = normalizeDOI(trimmedQuery);
+        console.log('SearchBar: Navigating to DOI URL', paperDoiUrl(normalizedDOI));
         navigate(paperDoiUrl(normalizedDOI));
         break;
       case 'pmid':
+        console.log('SearchBar: Navigating to PMID URL', paperPmidUrl(trimmedQuery));
         navigate(paperPmidUrl(trimmedQuery));
         break;
       case 'keywords':
@@ -107,6 +116,17 @@ export function SearchBar({
   };
 
   const isSubmitDisabled = !selectedMode || !query.trim() || !!validationError;
+  
+  console.log('SearchBar render state:', {
+    selectedMode,
+    query,
+    validationError,
+    isSubmitDisabled,
+    trimmedQuery: query.trim(),
+    hasSelectedMode: !!selectedMode,
+    hasQuery: !!query.trim(),
+    hasValidationError: !!validationError
+  });
 
   return (
     <div className="space-y-4">

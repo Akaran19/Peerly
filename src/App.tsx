@@ -1,13 +1,11 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { Toaster } from '@/components/ui/toaster';
-import { AuthProvider } from '@/hooks/useAuth';
+import AuthProvider from '@/hooks/useAuth';
+import { Suspense } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import HomePage from '@/pages/HomePage';
 import PaperPage from '@/pages/PaperPage';
-import DOIResolverPage from '@/pages/DOIResolverPage';
-import PMIDResolverPage from '@/pages/PMIDResolverPage';
-import ExternalPaperResolverPage from '@/pages/ExternalPaperResolverPage';
 import AuthorPage from '@/pages/AuthorPage';
 import JournalPage from '@/pages/JournalPage';
 import UserPage from '@/pages/UserPage';
@@ -25,24 +23,23 @@ function App() {
     <HelmetProvider>
       <AuthProvider>
         <Router>
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/paper/:paperIdAndSlug" element={<PaperPage />} />
-            <Route path="/paper/doi/:encoded" element={<DOIResolverPage />} />
-            <Route path="/paper/external/:source/:id" element={<ExternalPaperResolverPage />} />
-            <Route path="/paper/pmid/:pmid" element={<PMIDResolverPage />} />
-            <Route path="/author/:id" element={<AuthorPage />} />
-            <Route path="/journal/:id" element={<JournalPage />} />
-            <Route path="/u/:handle" element={<UserPage />} />
-            <Route path="/signin" element={<SignInPage />} />
-            <Route path="/auth" element={<AuthCallbackPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/privacy" element={<PrivacyPage />} />
-            <Route path="/terms" element={<TermsPage />} />
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
+          <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/paper/:paperIdAndSlug" element={<PaperPage />} />
+              <Route path="/author/:id" element={<AuthorPage />} />
+              <Route path="/journal/:id" element={<JournalPage />} />
+              <Route path="/u/:handle" element={<UserPage />} />
+              <Route path="/signin" element={<SignInPage />} />
+              <Route path="/auth" element={<AuthCallbackPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/terms" element={<TermsPage />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </Suspense>
           <Toaster />
         </Router>
         <Analytics />

@@ -104,17 +104,17 @@ export function PaperActions({ paperId, paper, onUpdate }: PaperActionsProps) {
   const openDOI = () => window.open(formatDOIUrl(paper?.doi || ''), '_blank');
 
   useEffect(() => {
-    if (user) {
+    if (user && user.id) {
       loadUserPaper();
     } else {
       setIsInitialLoading(false);
     }
-  }, [paperId, user]);
+  }, [paperId, user?.id]); // Only depend on user.id, not the entire user object
 
   const loadUserPaper = async () => {
     if (!user) return;
     try {
-      const data = await getUserPaper(paperId);
+      const data = await getUserPaper(paperId, user.id);
       setUserPaper(data);
     } catch (error) {
       console.error('Error loading user paper:', error);
@@ -137,14 +137,16 @@ export function PaperActions({ paperId, paper, onUpdate }: PaperActionsProps) {
       return;
     }
 
+    console.log('PaperActions: Updating user paper', { userId: user.id, paperId, updates });
     setIsLoading(true);
     try {
       const updated = await upsertUserPaper({
         paper_id: paperId,
         shelf: userPaper?.shelf || 'WANT',
         ...updates
-      });
+      }, user.id);
 
+      console.log('PaperActions: Update successful', updated);
       setUserPaper(updated);
       onUpdate?.(updated);
 
@@ -153,7 +155,7 @@ export function PaperActions({ paperId, paper, onUpdate }: PaperActionsProps) {
         description: "Your changes have been saved."
       });
     } catch (error) {
-      console.error('Error updating user paper:', error);
+      console.error('PaperActions: Error updating user paper:', error);
       toast({
         title: "Error",
         description: "Failed to save changes. Please try again.",

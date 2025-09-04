@@ -4,7 +4,8 @@ import { decodeDOIFromUrl, isValidDOI } from '@/lib/doi';
 import { paperUrl } from '@/lib/routing';
 import { dataClient } from '@/lib/dataClient';
 import { Loader2, AlertCircle, CheckCircle } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription } from '../components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import Header from '@/components/Header';
 
@@ -63,18 +64,20 @@ export default function DOIResolverPage() {
         navigate(redirectUrl, { replace: true });
       } else {
         console.log('Paper not found anywhere');
-        setError('Paper not found. The DOI may be invalid or the paper may not be available.');
-        setTimeout(() => {
-          navigate(`/?error=paper-not-found&doi=${encodeURIComponent(doi)}`, { replace: true });
-        }, 3000);
+        setError('Paper not found. The DOI may be invalid or the paper may not be available in our database.');
+        // Don't auto-redirect on error, let user see the message and manually go back
+        // setTimeout(() => {
+        //   navigate(`/?error=paper-not-found&doi=${encodeURIComponent(doi)}`, { replace: true });
+        // }, 3000);
       }
     } catch (error) {
       console.error('Error resolving DOI:', error);
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred while fetching the paper.';
       setError(errorMessage);
-      setTimeout(() => {
-        navigate('/?error=doi-resolution-failed', { replace: true });
-      }, 3000);
+      // Don't auto-redirect on error, let user see the message
+      // setTimeout(() => {
+      //   navigate('/?error=doi-resolution-failed', { replace: true });
+      // }, 3000);
     }
   };
 
@@ -104,10 +107,15 @@ export default function DOIResolverPage() {
       <main className="page-container">
         <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-6">
           {error ? (
-            <Alert variant="destructive" className="max-w-md">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+            <div className="space-y-4">
+              <Alert variant="destructive" className="max-w-md">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+              <Button onClick={() => navigate('/')} variant="outline">
+                ← Back to Search
+              </Button>
+            </div>
           ) : (
             <>
               <Loader2 className="w-8 h-8 animate-spin text-primary" />

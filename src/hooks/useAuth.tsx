@@ -1,11 +1,20 @@
 import { createContext, useEffect, useState, ReactNode, useMemo, useCallback, useContext } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import { useUser, useClerk, useAuth as useClerkAuth } from '@clerk/clerk-react';
+import { supabase, setTokenProvider } from '@/integrations/supabase/client';
 import { setGuestMode } from '@/lib/dataClient';
 
+// Define a User-like interface that matches Clerk's user structure
+interface ClerkUser {
+  id: string;
+  emailAddresses: Array<{ emailAddress: string }>;
+  firstName?: string;
+  lastName?: string;
+  imageUrl?: string;
+  username?: string;
+}
+
 interface AuthContextType {
-  user: User | null;
-  session: Session | null;
+  user: ClerkUser | null;
   loading: boolean;
   isGuest: boolean;
   signInWithGoogle: () => Promise<void>;
@@ -14,289 +23,156 @@ interface AuthContextType {
   signUpWithEmail: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   continueAsGuest: () => void;
-  convertGuestToUser: (user: User) => Promise<void>;
+  convertGuestToUser: (user: ClerkUser) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export { AuthContext };
+// export { AuthContext };
 
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
+    console.error('useAuth called but AuthContext is undefined. This usually means useAuth is being called outside of an AuthProvider.');
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+export default function AuthProvider({ children }: { children: ReactNode }) {
+  const { user: clerkUser, isLoaded } = useUser();
+  const { signOut: clerkSignOut } = useClerk();
+  const { getToken } = useClerkAuth();
   const [isGuest, setIsGuest] = useState(false);
 
-  const upsertProfile = useCallback(async (user: User) => {
+  console.log('AuthProvider: clerkUser:', !!clerkUser, 'isLoaded:', isLoaded);
+
+  // Convert Clerk user to our interface
+  const user = clerkUser ? {
+    id: clerkUser.id,
+    emailAddresses: clerkUser.emailAddresses,
+    firstName: clerkUser.firstName,
+    lastName: clerkUser.lastName,
+    imageUrl: clerkUser.imageUrl,
+    username: clerkUser.username
+  } : null;
+
+  const loading = !isLoaded;
+
+  const upsertProfile = useCallback(async (user: ClerkUser) => {
     try {
-      const handle = (user.user_metadata?.preferred_username ||
-                      user.email?.split('@')[0] ||
+      const handle = (user.username ||
+                      user.emailAddresses[0]?.emailAddress?.split('@')[0] ||
                       user.id.slice(0, 8)).toLowerCase();
 
-      await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          handle,
-          name: user.user_metadata?.full_name || user.user_metadata?.name || handle,
-          image: user.user_metadata?.avatar_url || null,
-        }, { onConflict: 'id' });
+      const name = user.firstName && user.lastName
+        ? `${user.firstName} ${user.lastName}`
+        : user.firstName || user.lastName || handle;
+
+      // Use RPC to get or create profile and get the UUID
+      const { data: profileId, error } = await supabase
+        .rpc('get_or_create_profile', {
+          p_clerk_id: user.id,
+          p_handle: handle,
+          p_image: user.imageUrl || null,
+          p_name: name
+        });
+
+      if (error) {
+        console.error('Error getting/creating profile:', error);
+        return null;
+      }
+
+      return profileId;
     } catch (error) {
       console.error('Error upserting profile:', error);
+      return null;
     }
   }, []);
 
-    const signInWithGoogle = useCallback(async () => {
-    console.log('Starting Google sign in...');
-
-    // Use the current origin as the redirect URL to ensure OAuth callbacks work properly
-    const redirectUrl = `${window.location.origin}/auth`;
-
-    console.log('Using redirect URL:', redirectUrl);
-
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: redirectUrl,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent'
-        }
-      }
-    });
-
-    if (error) {
-      console.error('Google sign in error:', error);
-      throw error;
-    }
-
-    console.log('Google sign in initiated successfully');
+  const signInWithGoogle = useCallback(async () => {
+    console.log('Google sign in handled by Clerk SignIn component');
+    // Clerk handles OAuth automatically when using their SignIn component
   }, []);
 
   const signInWithGitHub = useCallback(async () => {
-    console.log('Starting GitHub sign in...');
-
-    // Use the current origin as the redirect URL to ensure OAuth callbacks work properly
-    const redirectUrl = `${window.location.origin}/auth`;
-
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'github',
-      options: {
-        redirectTo: redirectUrl,
-        scopes: 'read:user,user:email'
-      }
-    });
-
-    if (error) {
-      console.error('GitHub sign in error:', error);
-      throw error;
-    }
-
-    console.log('GitHub sign in initiated successfully');
+    console.log('GitHub sign in handled by Clerk SignIn component');
+    // Clerk handles OAuth automatically when using their SignIn component
   }, []);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
-    console.log('Starting email sign in...');
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-
-    if (error) {
-      console.error('Email sign in error:', error);
-      throw error;
-    }
-
-    if (data.user) {
-      console.log('Email sign in successful for user:', data.user.email);
-      // The auth state change should be handled by the onAuthStateChange listener
-    } else {
-      console.warn('Email sign in completed but no user data returned');
-    }
+    console.log('Email sign in handled by Clerk SignIn component');
+    // Clerk handles email auth automatically when using their SignIn component
   }, []);
 
   const signUpWithEmail = useCallback(async (email: string, password: string) => {
-    console.log('Starting email sign up...');
-    const { error } = await supabase.auth.signUp({
-      email,
-      password
-    });
-
-    if (error) {
-      console.error('Email sign up error:', error);
-      throw error;
-    }
-
-    console.log('Email sign up successful');
+    console.log('Email sign up handled by Clerk SignIn component');
+    // Clerk handles email auth automatically when using their SignIn component
   }, []);
 
   const signOut = useCallback(async () => {
-    console.log('Starting sign out...');
+    console.log('Starting sign out with Clerk...');
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('Sign out error:', error);
-        throw error;
-      }
-      
+      await clerkSignOut();
+
+      // Clear token provider
+      setTokenProvider(async () => null);
+
       // Clear guest mode when signing out
       localStorage.removeItem('peerly_guest_mode');
       setIsGuest(false);
       setGuestMode(false);
-      
-      // Clear user and session state immediately
-      setUser(null);
-      setSession(null);
-      
+
       console.log('Sign out successful');
     } catch (error) {
       console.error('Sign out failed:', error);
       throw error;
     }
-  }, []);
+  }, [clerkSignOut]);
 
   const continueAsGuest = useCallback(() => {
+    // Clear token provider when switching to guest mode
+    setTokenProvider(async () => null);
+    
     setIsGuest(true);
     setGuestMode(true);
     localStorage.setItem('peerly_guest_mode', 'true');
-    setLoading(false);
   }, []);
 
-  const convertGuestToUser = useCallback(async (authenticatedUser: User) => {
+  const convertGuestToUser = useCallback(async (authenticatedUser: ClerkUser) => {
     // This will be called when a guest user signs in
-    // We could potentially migrate their local data to the database here
     setIsGuest(false);
     setGuestMode(false);
     localStorage.removeItem('peerly_guest_mode');
-    setUser(authenticatedUser);
   }, []);
 
   useEffect(() => {
-    let mounted = true;
-
-    // Set up auth state listener immediately
-    console.log('Setting up auth state listener...');
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!mounted) return;
-
-        console.log('Auth state change:', event, session?.user?.email, { hasSession: !!session });
-        
-        if (event === 'SIGNED_OUT') {
-          console.log('User signed out, clearing state');
-          setSession(null);
-          setUser(null);
-          setIsGuest(false);
-          setGuestMode(false);
-          localStorage.removeItem('peerly_guest_mode');
-        } else if (event === 'SIGNED_IN' && session) {
-          console.log('User signed in:', session.user.email);
-          console.log('Session details:', {
-            access_token: !!session.access_token,
-            refresh_token: !!session.refresh_token,
-            expires_at: session.expires_at
-          });
-          setSession(session);
-          setUser(session.user);
-          setIsGuest(false);
-          setGuestMode(false);
-
-          // Create/update profile when user signs in
-          setTimeout(() => {
-            upsertProfile(session.user);
-          }, 0);
-
-          // Clean up URL after auth state change
-          if (window.location.hash.includes('access_token')) {
-            window.history.replaceState({}, document.title, window.location.pathname);
+    const setupTokenProvider = () => {
+      if (clerkUser) {
+        // Set up token provider for authenticated users
+        setTokenProvider(async () => {
+          try {
+            const token = await getToken();
+            console.log('Providing Clerk JWT token:', !!token);
+            return token ?? null;
+          } catch (error) {
+            console.error('Error getting Clerk token:', error);
+            return null;
           }
-        } else if (event === 'TOKEN_REFRESHED') {
-          console.log('Token refreshed for user:', session?.user?.email);
-          setSession(session);
-          setUser(session?.user ?? null);
-        }
-
-        setLoading(false);
+        });
+      } else {
+        // Clear token provider when user is not signed in
+        setTokenProvider(async () => null);
       }
-    );
-
-    // Check if user was previously in guest mode
-    const wasGuest = localStorage.getItem('peerly_guest_mode') === 'true';
-    if (wasGuest && mounted) {
-      console.log('User was previously in guest mode, checking for existing session...');
-      // Don't set guest mode immediately, check for session first
-    }
-
-    // For new users, automatically start in guest mode
-    const hasVisitedBefore = localStorage.getItem('peerly_has_visited');
-    if (!hasVisitedBefore && mounted) {
-      console.log('First time visitor, will set guest mode after session check');
-      localStorage.setItem('peerly_has_visited', 'true');
-      // Don't set guest mode immediately
-    }
-
-    // Check for existing session
-    const checkExistingSession = async () => {
-      console.log('Checking for existing session...');
-      try {
-        const { data, error } = await supabase.auth.getSession();
-        console.log('Session check result:', { session: !!data.session, error });
-        if (error) {
-          console.error('Error getting session:', error);
-        } else if (data.session && mounted) {
-          console.log('Found existing session for user:', data.session.user.email);
-          setSession(data.session);
-          setUser(data.session.user);
-          setIsGuest(false);
-          setGuestMode(false);
-        } else {
-          console.log('No existing session found, checking guest mode...');
-          // No session found, check guest mode
-          const wasGuest = localStorage.getItem('peerly_guest_mode') === 'true';
-          if (wasGuest && mounted) {
-            console.log('Setting guest mode from localStorage');
-            setIsGuest(true);
-            setGuestMode(true);
-          } else if (!hasVisitedBefore && mounted) {
-            console.log('Setting guest mode for first-time visitor');
-            setIsGuest(true);
-            setGuestMode(true);
-          } else {
-            console.log('No guest mode, user needs to sign in');
-            setIsGuest(false);
-            setGuestMode(false);
-          }
-        }
-      } catch (error) {
-        console.error('Error handling auth callback:', error);
-        // On error, default to guest mode for new users
-        if (!hasVisitedBefore && mounted) {
-          setIsGuest(true);
-          setGuestMode(true);
-        }
-      }
-      setLoading(false);
     };
 
-    checkExistingSession();
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, [upsertProfile]);
+    if (isLoaded) {
+      setupTokenProvider();
+    }
+  }, [clerkUser, isLoaded, getToken]);
 
   const contextValue = useMemo(() => ({
     user,
-    session,
     loading,
     isGuest,
     signInWithGoogle,
@@ -306,8 +182,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signOut,
     continueAsGuest,
     convertGuestToUser
-  }), [user, session, loading, isGuest, signInWithGoogle, signInWithGitHub, signInWithEmail, signUpWithEmail, signOut, continueAsGuest, convertGuestToUser]);
+  }), [user, loading, isGuest, signInWithGoogle, signInWithGitHub, signInWithEmail, signUpWithEmail, signOut, continueAsGuest, convertGuestToUser]);
 
+  console.log('AuthProvider rendering with context:', !!contextValue);
   return (
     <AuthContext.Provider value={contextValue}>
       {children}

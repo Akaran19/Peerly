@@ -1,9 +1,9 @@
 // Peerly - Data client with Supabase and CrossRef integration
 
 import { Paper, Author, Journal, User, UserPaper, Shelf, PaperAggregates } from '@/types';
-import { normalizeDOI } from './doi';
+import { normalizeDOI, decodeDOIFromUrl } from './doi';
 import { supabase } from '@/integrations/supabase/client';
-import { getPaperByDOI, multiApiToPaper } from '@/lib/crossref';
+import { getPaperByDOI, multiApiToPaper, searchPapersByKeywords, getPaperByPMID } from '@/lib/crossref';
 import { GuestStorage } from './guestStorage';
 
 // Global flag to track guest mode (will be set by auth context)
@@ -54,6 +54,12 @@ function mapPaperToDatabase(paper: Omit<Paper, 'id'>): any {
   };
 }
 
+// Global cache for API call timestamps to prevent rapid successive calls
+const apiCallCache = new Map<string, number>();
+// Global rate limit tracker for dataClient
+let lastDataClientApiCallTime = 0;
+const MIN_DATA_CLIENT_API_INTERVAL = 3000; // 3 seconds between any API calls in dataClient
+
 export const dataClient = {
   async getPaperById(id: string): Promise<Paper | null> {
     try {
@@ -64,13 +70,11 @@ export const dataClient = {
         .single();
 
       if (error) {
-        console.error('Error fetching paper by ID:', error);
         return null;
       }
 
       return mapDatabasePaperToPaper(data);
     } catch (error) {
-      console.error('Error in getPaperById:', error);
       return null;
     }
   },
@@ -78,62 +82,79 @@ export const dataClient = {
   async getPaperByDOI(doi: string): Promise<Paper | null> {
     try {
       const normalizedDOI = normalizeDOI(doi);
-      console.log('getPaperByDOI called with:', doi, 'normalized to:', normalizedDOI);
       
-      // Try with .single() first
+      // Use limit(1) instead of .single() to avoid 406 errors when no rows found
       const { data, error } = await supabase
         .from('papers')
         .select('*')
         .eq('doi', normalizedDOI)
-        .single();
+        .limit(1);
 
       if (error) {
-        console.log('Single query failed:', error.message, 'Code:', error.code);
-        
-        // Fallback to regular query
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('papers')
-          .select('*')
-          .eq('doi', normalizedDOI)
-          .limit(1);
-
-        if (fallbackError) {
-          console.log('Fallback query also failed:', fallbackError.message);
-          return null;
-        }
-
-        if (fallbackData && fallbackData.length > 0) {
-          console.log('Fallback query found paper:', fallbackData[0]);
-          return mapDatabasePaperToPaper(fallbackData[0]);
-        }
-        
-        console.log('No paper found with DOI:', normalizedDOI);
+        console.error('Error querying papers:', error);
         return null;
       }
 
-      console.log('Paper found in database:', data);
-      return mapDatabasePaperToPaper(data);
+      if (!data || data.length === 0) {
+        return null;
+      }
+
+      return mapDatabasePaperToPaper(data[0]);
     } catch (error) {
-      console.error('Error in getPaperByDOI:', error);
+      console.error('Exception in getPaperByDOI:', error);
       return null;
     }
   },
 
   async lookupPaperByDOI(doi: string): Promise<Paper | null> {
+    console.log('dataClient: lookupPaperByDOI called with', doi);
     try {
       const normalizedDOI = normalizeDOI(doi);
-      console.log('lookupPaperByDOI called with:', doi, 'normalized to:', normalizedDOI);
+      console.log('dataClient: Looking up DOI', normalizedDOI);
+
+      // Check if we recently made an API call for this DOI
+      const lastCallTime = apiCallCache.get(normalizedDOI);
+      const now = Date.now();
+      if (lastCallTime && (now - lastCallTime) < 30000) { // 30 second cooldown
+        console.log('dataClient: API call too recent, using cached data only');
+        const existingPaper = await this.getPaperByDOI(normalizedDOI);
+        return existingPaper;
+      }
 
       // First check if paper exists in Supabase
       const existingPaper = await this.getPaperByDOI(normalizedDOI);
-      console.log('Existing paper in database:', existingPaper);
+      console.log('dataClient: Existing paper in DB', existingPaper);
       
-            // If paper exists but has incomplete data, refetch and update
-      if (existingPaper && !existingPaper.abstract) {
-        console.log('Paper exists but has incomplete data, refetching from APIs...');
+      // If paper exists and has basic data (title), don't make API calls unless explicitly requested
+      // Only refresh if the paper is very old (7+ days) or missing critical data
+      if (existingPaper && existingPaper.title) {
+        const paperAge = existingPaper.created_at ? 
+          Date.now() - new Date(existingPaper.created_at).getTime() : Infinity;
+        
+        // Only refresh if older than 7 days AND missing abstract
+        const shouldRefresh = paperAge > (7 * 24 * 60 * 60 * 1000) && !existingPaper.abstract;
+        
+        if (!shouldRefresh) {
+          console.log('dataClient: Returning existing paper (recent or has title)');
+          return existingPaper;
+        }
+        
+        console.log('dataClient: Paper exists but is old and missing abstract, refreshing data');
+        
+        // Check if we recently made an API call for this DOI
+        const lastCallTime = apiCallCache.get(normalizedDOI);
+        const now = Date.now();
+        if (lastCallTime && (now - lastCallTime) < 30000) { // 30 second cooldown
+          console.log('dataClient: API call too recent, using cached data only');
+          return existingPaper;
+        }
+        
+        // Update cache timestamp
+        apiCallCache.set(normalizedDOI, now);
         
         // Fetch fresh data from multiple APIs
         const multiApiPaper = await getPaperByDOI(normalizedDOI);
+        console.log('dataClient: Fresh API data', multiApiPaper);
         if (multiApiPaper && multiApiPaper.title) {
           const updatedPaperData = multiApiToPaper(multiApiPaper);
           
@@ -146,46 +167,36 @@ export const dataClient = {
             .single();
 
           if (!updateError && updatedPaper) {
-            console.log(`Successfully updated paper with fresh data: ${updatedPaper.title}`);
             return mapDatabasePaperToPaper(updatedPaper);
           }
         }
-      } else if (existingPaper) {
+        
+        // If API call failed or returned no data, return existing paper
+        console.log('dataClient: API refresh failed, returning existing paper');
         return existingPaper;
       }
 
       // If not found, fetch from multiple APIs
-      console.log(`Fetching paper ${normalizedDOI} from multiple APIs...`);
+      console.log('dataClient: Fetching from APIs');
+      
+      // Update cache timestamp (already checked above)
+      apiCallCache.set(normalizedDOI, now);
       
       // Add a small delay to prevent rapid retries that hit rate limits
       await new Promise(resolve => setTimeout(resolve, 500));
       
       const multiApiPaper = await getPaperByDOI(normalizedDOI);
-      console.log('Multi-API response:', multiApiPaper);
+      console.log('dataClient: API result', multiApiPaper);
       if (!multiApiPaper || !multiApiPaper.title) {
-        console.log(`Paper ${normalizedDOI} not found in any API`);
+        console.log('dataClient: No valid paper data from APIs');
         return null;
       }
 
       // Convert to paper format
       const paperData = multiApiToPaper(multiApiPaper);
-      console.log('Converted paper data:', paperData);
+      console.log('dataClient: Converted paper data', paperData);
 
-      // Check if user is authenticated before trying to insert
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      console.log('Current user:', user, 'Auth error:', authError);
-      
-      if (authError || !user) {
-        console.log('User not authenticated, returning paper data without inserting to database');
-        // Return the paper data directly without inserting to database
-        // Generate a temporary ID for the paper
-        return {
-          ...paperData,
-          id: `guest-${normalizedDOI.replace(/[^a-zA-Z0-9]/g, '-')}`
-        };
-      }
-
-      // Try insert first, if it fails due to duplicate, try update
+      // Try to insert the paper - if it fails due to auth, return guest paper
       try {
         const { data: newPaper, error } = await supabase
           .from('papers')
@@ -194,9 +205,8 @@ export const dataClient = {
           .single();
 
         if (error) {
-          // Check if it's a duplicate key error (DOI already exists)
+          // Check if it's an auth error (401/403) or duplicate key error
           if (error.code === '23505' && error.message.includes('papers_doi_key')) {
-            console.log('Paper with DOI already exists, updating instead...');
             // If insert fails due to duplicate DOI, try update
             const { data: updatedPaper, error: updateError } = await supabase
               .from('papers')
@@ -206,46 +216,196 @@ export const dataClient = {
               .single();
 
             if (updateError) {
-              console.error('Update also failed:', updateError);
+              // If update also fails due to auth, return guest paper
+              if (updateError.code === 'PGRST301' || updateError.message?.includes('Unauthorized')) {
+                console.log('dataClient: Auth error on update, returning guest paper');
+                const guestPaper = {
+                  ...paperData,
+                  id: `guest-${normalizedDOI.replace(/[^a-zA-Z0-9]/g, '-')}`
+                };
+                return guestPaper;
+              }
+              console.log('dataClient: Update error', updateError);
               return null;
             }
 
-            console.log(`Successfully updated existing paper: ${updatedPaper.title}`);
+            console.log('dataClient: Updated existing paper');
             return mapDatabasePaperToPaper(updatedPaper);
+          } else if (error.code === 'PGRST301' || error.message?.includes('Unauthorized')) {
+            // Auth error - return guest paper
+            console.log('dataClient: Auth error on insert, returning guest paper');
+            const guestPaper = {
+              ...paperData,
+              id: `guest-${normalizedDOI.replace(/[^a-zA-Z0-9]/g, '-')}`
+            };
+            return guestPaper;
           } else {
             // Some other error occurred during insert
-            console.error('Insert failed with unexpected error:', error);
+            console.log('dataClient: Insert error', error);
             return null;
           }
         }
 
-        console.log(`Successfully inserted new paper: ${newPaper.title}`);
+        console.log('dataClient: Inserted new paper', newPaper);
         return mapDatabasePaperToPaper(newPaper);
-      } catch (insertError) {
-        console.error('Insert/update failed:', insertError);
+      } catch (insertError: any) {
+        // If insert fails due to auth, return guest paper
+        if (insertError.code === 'PGRST301' || insertError.message?.includes('Unauthorized')) {
+          console.log('dataClient: Auth error in insert exception, returning guest paper');
+          const guestPaper = {
+            ...paperData,
+            id: `guest-${normalizedDOI.replace(/[^a-zA-Z0-9]/g, '-')}`
+          };
+          return guestPaper;
+        }
+        console.log('dataClient: Insert exception', insertError);
         return null;
       }
     } catch (error) {
-      console.error('Error in lookupPaperByDOI:', error);
+      console.log('dataClient: Lookup exception', error);
+      return null;
+    }
+  },
+
+  async lookupPaperByPMID(pmid: string): Promise<Paper | null> {
+    try {
+      // First check if paper exists in Supabase by searching for PMID in DOI field
+      const { data: existingPapers, error } = await supabase
+        .from('papers')
+        .select('*')
+        .ilike('doi', `%${pmid}%`)
+        .limit(1);
+
+      if (!error && existingPapers && existingPapers.length > 0) {
+        return mapDatabasePaperToPaper(existingPapers[0]);
+      }
+
+      // If not found, fetch from PubMed API
+      const multiApiPaper = await getPaperByPMID(pmid);
+      if (!multiApiPaper || !multiApiPaper.title) {
+        return null;
+      }
+
+      // Convert to paper format
+      const paperData = multiApiToPaper(multiApiPaper);
+
+      // Try to insert the paper - if it fails due to auth, return guest paper
+      try {
+        const { data: newPaper, error } = await supabase
+          .from('papers')
+          .insert(mapPaperToDatabase(paperData))
+          .select()
+          .single();
+
+        if (error) {
+          // Check if it's a duplicate key error
+          if (error.code === '23505') {
+            // If insert fails due to duplicate, try update
+            const { data: updatedPaper, error: updateError } = await supabase
+              .from('papers')
+              .update(mapPaperToDatabase(paperData))
+              .ilike('doi', `%${pmid}%`)
+              .select()
+              .single();
+
+            if (updateError) {
+              // If update also fails due to auth, return guest paper
+              if (updateError.code === 'PGRST301' || updateError.message?.includes('Unauthorized')) {
+                console.log('dataClient: Auth error on PMID update, returning guest paper');
+                return {
+                  ...paperData,
+                  id: `guest-pmid-${pmid}`
+                };
+              }
+              return null;
+            }
+
+            return mapDatabasePaperToPaper(updatedPaper);
+          } else if (error.code === 'PGRST301' || error.message?.includes('Unauthorized')) {
+            // Auth error - return guest paper
+            console.log('dataClient: Auth error on PMID insert, returning guest paper');
+            return {
+              ...paperData,
+              id: `guest-pmid-${pmid}`
+            };
+          } else {
+            return null;
+          }
+        }
+
+        return mapDatabasePaperToPaper(newPaper);
+      } catch (insertError: any) {
+        // If insert fails due to auth, return guest paper
+        if (insertError.code === 'PGRST301' || insertError.message?.includes('Unauthorized')) {
+          console.log('dataClient: Auth error in PMID insert exception, returning guest paper');
+          return {
+            ...paperData,
+            id: `guest-pmid-${pmid}`
+          };
+        }
+        return null;
+      }
+    } catch (error) {
       return null;
     }
   },
 
   async keywordSearchPapers(query: string): Promise<Paper[]> {
     try {
-      const { data, error } = await supabase
+      // First, search the local database
+      const { data: localData, error: localError } = await supabase
         .from('papers')
         .select('*')
         .or(`title.ilike.%${query}%,abstract.ilike.%${query}%,journal.ilike.%${query}%,conference.ilike.%${query}%`)
-        .limit(20);
+        .limit(10); // Get fewer from local to leave room for web results
 
-      if (error) {
-        console.error('Error searching papers:', error);
-        return [];
+      const localPapers = localError ? [] : (localData || []).map(mapDatabasePaperToPaper);
+
+      // If we have enough local results, return them
+      if (localPapers.length >= 10) {
+        return localPapers.slice(0, 20);
       }
-      return (data || []).map(mapDatabasePaperToPaper);
+
+      // Otherwise, also search the web for additional results
+      try {
+        const webResults = await searchPapersByKeywords(query, 15);
+
+        // Convert web results to Paper format and filter out duplicates
+        const webPapers: Paper[] = [];
+        const seenDois = new Set(localPapers.map(p => p.doi));
+
+        for (const webPaper of webResults) {
+          if (!seenDois.has(webPaper.doi)) {
+            // Convert to paper format but DON'T save to database yet
+            const paperData = multiApiToPaper(webPaper);
+
+            // Add to results with temporary web ID (will be saved when user clicks into it)
+            webPapers.push({
+              ...paperData,
+              id: `web-${webPaper.doi.replace(/[^a-zA-Z0-9]/g, '-')}` // Temporary ID for web results
+            });
+
+            seenDois.add(webPaper.doi);
+          }
+        }
+
+        // Combine local and web results
+        const combinedResults = [...localPapers, ...webPapers];
+
+        // Sort combined results by citation count in descending order
+        combinedResults.sort((a, b) => {
+          const aCitations = a.citationCount || 0;
+          const bCitations = b.citationCount || 0;
+          return bCitations - aCitations;
+        });
+
+        return combinedResults.slice(0, 20);
+
+      } catch (webError) {
+        console.error('Web search failed, returning local results only:', webError);
+        return localPapers;
+      }
     } catch (error) {
-      console.error('Error in keywordSearchPapers:', error);
       return [];
     }
   },
@@ -259,12 +419,10 @@ export const dataClient = {
         .contains('authors', [authorId]);
 
       if (error) {
-        console.error('Error listing papers by author:', error);
         return [];
       }
       return (data || []).map(mapDatabasePaperToPaper);
     } catch (error) {
-      console.error('Error in listPapersByAuthor:', error);
       return [];
     }
   },
@@ -277,12 +435,10 @@ export const dataClient = {
         .eq('journal', journalId);
 
       if (error) {
-        console.error('Error listing papers by journal:', error);
         return [];
       }
       return (data || []).map(mapDatabasePaperToPaper);
     } catch (error) {
-      console.error('Error in listPapersByJournal:', error);
       return [];
     }
   },
@@ -291,10 +447,8 @@ export const dataClient = {
     try {
       // Authors are now stored as strings in the authors array
       // This function is kept for backward compatibility but may not be used
-      console.warn('getAuthor is deprecated - authors are now stored as strings in papers.authors');
       return null;
     } catch (error) {
-      console.error('Error in getAuthor:', error);
       return null;
     }
   },
@@ -303,10 +457,8 @@ export const dataClient = {
     try {
       // Journals are now stored as strings in papers.journal
       // This function is kept for backward compatibility but may not be used
-      console.warn('getJournal is deprecated - journals are now stored as strings in papers.journal');
       return null;
     } catch (error) {
-      console.error('Error in getJournal:', error);
       return null;
     }
   },
@@ -320,12 +472,10 @@ export const dataClient = {
         .single();
 
       if (error) {
-        console.error('Error fetching user by handle:', error);
         return null;
       }
       return data as unknown as User;
     } catch (error) {
-      console.error('Error in getUserByHandle:', error);
       return null;
     }
   },
@@ -338,11 +488,18 @@ export const dataClient = {
       return GuestStorage.getUserPapers();
     }
 
+    // Get the database profile ID from Clerk user ID
+    const { getCurrentUserId } = await import('./supabaseHelpers');
+    const dbUserId = await getCurrentUserId(userId);
+    if (!dbUserId) {
+      return [];
+    }
+
     try {
       let query = supabase
         .from('user_papers')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', dbUserId);
 
       if (shelf) {
         query = query.eq('shelf', shelf);
@@ -353,17 +510,56 @@ export const dataClient = {
 
       if (error) {
         console.error('Error listing user papers:', error);
+        // If RLS blocks access, return empty array instead of failing
+        if (error.code === 'PGRST301' || error.message?.includes('Unauthorized')) {
+          console.log('RLS blocking access to user_papers for listing, returning empty array');
+          return [];
+        }
         return [];
       }
       return (data || []) as unknown as UserPaper[];
     } catch (error) {
-      console.error('Error in listUserPapers:', error);
+      console.error('Exception in listUserPapers:', error);
+      // Return empty array on any error to prevent app crashes
       return [];
     }
   },
 
   async upsertUserPaper(input: Partial<UserPaper> & { userId: string; paperId: string }): Promise<UserPaper> {
-    if (isGuestMode) {
+    // Handle guest paper IDs for authenticated users
+    if (input.paperId.startsWith('guest-') && !isGuestMode) {
+      try {
+        // Extract DOI from guest ID
+        const guestPrefix = 'guest-';
+        const encodedDoi = input.paperId.slice(guestPrefix.length);
+        const doi = decodeDOIFromUrl(encodedDoi);
+
+        // Ensure the paper exists in database
+        const realPaper = await this.lookupPaperByDOI(doi);
+        if (realPaper) {
+          // Use the real paper ID
+          input.paperId = realPaper.id;
+        } else {
+          // Fallback to GuestStorage if lookup fails
+          return GuestStorage.upsertUserPaper(input.paperId, {
+            shelf: input.shelf,
+            rating: input.rating,
+            review: input.review
+          });
+        }
+      } catch (error) {
+        console.error('Error converting guest paper to real paper:', error);
+        // Fallback to GuestStorage
+        return GuestStorage.upsertUserPaper(input.paperId, {
+          shelf: input.shelf,
+          rating: input.rating,
+          review: input.review
+        });
+      }
+    }
+
+    // If in guest mode or still guest paper, use GuestStorage
+    if (isGuestMode || input.paperId.startsWith('guest-')) {
       return GuestStorage.upsertUserPaper(input.paperId, {
         shelf: input.shelf,
         rating: input.rating,
@@ -371,11 +567,18 @@ export const dataClient = {
       });
     }
 
+    // Get the database profile ID from Clerk user ID
+    const { getCurrentUserId } = await import('./supabaseHelpers');
+    const dbUserId = await getCurrentUserId(input.userId);
+    if (!dbUserId) {
+      throw new Error('Unable to get user profile ID');
+    }
+
     try {
       const { data, error } = await supabase
         .from('user_papers')
         .upsert({
-          user_id: input.userId,
+          user_id: dbUserId,
           paper_id: input.paperId,
           shelf: input.shelf || 'WANT',
           rating: input.rating || null,
@@ -388,16 +591,50 @@ export const dataClient = {
 
       if (error) {
         console.error('Error upserting user paper:', error);
+        // If RLS blocks access, throw a more specific error
+        if (error.code === 'PGRST301' || error.message?.includes('Unauthorized')) {
+          console.log('RLS blocking access to user_papers for upsert, throwing specific error');
+          throw new Error('Unable to save paper changes due to authentication issues. Please try refreshing the page.');
+        }
         throw error;
       }
       return data as unknown as UserPaper;
     } catch (error) {
-      console.error('Error in upsertUserPaper:', error);
+      console.error('Exception in upsertUserPaper:', error);
+      // Re-throw the error so the UI can handle it appropriately
       throw error;
     }
   },
 
   async getAggregatesForPaper(paperId: string): Promise<PaperAggregates & { histogram: Record<1|2|3|4|5, number> }> {
+    // Handle guest paper IDs for authenticated users
+    if (paperId.startsWith('guest-') && !isGuestMode) {
+      try {
+        // Extract DOI from guest ID
+        const guestPrefix = 'guest-';
+        const encodedDoi = paperId.slice(guestPrefix.length);
+        const doi = decodeDOIFromUrl(encodedDoi);
+
+        // Ensure the paper exists in database
+        const realPaper = await this.lookupPaperByDOI(doi);
+        if (realPaper) {
+          // Use the real paper ID
+          paperId = realPaper.id;
+        } else {
+          // Fallback to default stats
+          return { avgRating: 0, count: 0, latest: [], histogram: {1: 0, 2: 0, 3: 0, 4: 0, 5: 0} };
+        }
+      } catch (error) {
+        console.error('Error converting guest paper to real paper:', error);
+        return { avgRating: 0, count: 0, latest: [], histogram: {1: 0, 2: 0, 3: 0, 4: 0, 5: 0} };
+      }
+    }
+
+    // For guest papers, return default stats since they're not in the database
+    if (paperId.startsWith('guest-')) {
+      return { avgRating: 0, count: 0, latest: [], histogram: {1: 0, 2: 0, 3: 0, 4: 0, 5: 0} };
+    }
+
     try {
       const { data, error } = await supabase
         .from('user_papers')
@@ -406,6 +643,11 @@ export const dataClient = {
 
       if (error) {
         console.error('Error fetching paper aggregates:', error);
+        // If RLS blocks access, return default stats instead of failing
+        if (error.code === 'PGRST301' || error.message?.includes('Unauthorized')) {
+          console.log('RLS blocking access to user_papers, returning default stats');
+          return { avgRating: 0, count: 0, latest: [], histogram: {1: 0, 2: 0, 3: 0, 4: 0, 5: 0} };
+        }
         return { avgRating: 0, count: 0, latest: [], histogram: {1: 0, 2: 0, 3: 0, 4: 0, 5: 0} };
       }
 
@@ -423,7 +665,7 @@ export const dataClient = {
         }
       });
 
-      // Get latest user papers for this paper
+      // Get latest user papers for this paper - also handle RLS errors gracefully
       const { data: latestData, error: latestError } = await supabase
         .from('user_papers')
         .select('*')
@@ -440,7 +682,8 @@ export const dataClient = {
         histogram
       };
     } catch (error) {
-      console.error('Error in getAggregatesForPaper:', error);
+      console.error('Exception in getAggregatesForPaper:', error);
+      // Return default stats on any error to prevent app crashes
       return { avgRating: 0, count: 0, latest: [], histogram: {1: 0, 2: 0, 3: 0, 4: 0, 5: 0} };
     }
   },
@@ -465,6 +708,11 @@ export const dataClient = {
 
       if (error) {
         console.error('Error fetching top reviews:', error);
+        // If RLS blocks access, return empty array instead of failing
+        if (error.code === 'PGRST301' || error.message?.includes('Unauthorized')) {
+          console.log('RLS blocking access to user_papers for top reviews, returning empty array');
+          return [];
+        }
         return [];
       }
 
@@ -484,7 +732,8 @@ export const dataClient = {
         }
       })) as Array<UserPaper & { user: User }>;
     } catch (error) {
-      console.error('Error in getTopReviewsForPaper:', error);
+      console.error('Exception in getTopReviewsForPaper:', error);
+      // Return empty array on any error to prevent app crashes
       return [];
     }
   },
@@ -492,7 +741,6 @@ export const dataClient = {
   // Helper to get current user for UI components
   getCurrentUser(): User {
     // This is a synchronous helper that should be replaced with proper auth
-    console.warn('getCurrentUser is deprecated - use proper auth context');
     return {
       id: '1',
       handle: 'user',
@@ -501,29 +749,62 @@ export const dataClient = {
     };
   },
 
-  async getCurrentUserPaper(paperId: string): Promise<UserPaper | null> {
-    if (isGuestMode) {
+  async getCurrentUserPaper(paperId: string, userId: string): Promise<UserPaper | null> {
+    // Handle guest paper IDs for authenticated users
+    if (paperId.startsWith('guest-') && !isGuestMode) {
+      try {
+        // Extract DOI from guest ID
+        const guestPrefix = 'guest-';
+        const encodedDoi = paperId.slice(guestPrefix.length);
+        const doi = decodeDOIFromUrl(encodedDoi);
+
+        // Ensure the paper exists in database
+        const realPaper = await this.lookupPaperByDOI(doi);
+        if (realPaper) {
+          // Use the real paper ID
+          paperId = realPaper.id;
+        } else {
+          // Fallback to GuestStorage
+          return GuestStorage.getUserPaper(paperId);
+        }
+      } catch (error) {
+        console.error('Error converting guest paper to real paper:', error);
+        return GuestStorage.getUserPaper(paperId);
+      }
+    }
+
+    if (isGuestMode || paperId.startsWith('guest-')) {
       return GuestStorage.getUserPaper(paperId);
     }
 
-    try {
-      const userId = await this.getCurrentUserId();
-      if (!userId) return null;
+    // Get the database profile ID from Clerk user ID
+    const { getCurrentUserId } = await import('./supabaseHelpers');
+    const dbUserId = await getCurrentUserId(userId);
+    if (!dbUserId) {
+      return null;
+    }
 
+    try {
       const { data, error } = await supabase
         .from('user_papers')
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_id', dbUserId)
         .eq('paper_id', paperId)
         .maybeSingle();
 
       if (error) {
         console.error('Error fetching current user paper:', error);
+        // If RLS blocks access, return null instead of failing
+        if (error.code === 'PGRST301' || error.message?.includes('Unauthorized')) {
+          console.log('RLS blocking access to user_papers for current user paper, returning null');
+          return null;
+        }
         return null;
       }
       return data as unknown as UserPaper;
     } catch (error) {
-      console.error('Error in getCurrentUserPaper:', error);
+      console.error('Exception in getCurrentUserPaper:', error);
+      // Return null on any error to prevent app crashes
       return null;
     }
   },
@@ -533,12 +814,7 @@ export const dataClient = {
       return 'guest-user';
     }
 
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      return user?.id ?? null;
-    } catch (error) {
-      console.error('Error getting current user ID:', error);
-      return null;
-    }
+    // This method is deprecated - user ID should be passed directly to methods
+    return null;
   }
 };

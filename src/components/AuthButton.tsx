@@ -52,11 +52,11 @@ export function AuthButton() {
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-8 w-8">
             <AvatarImage
-              src={user.user_metadata?.avatar_url}
-              alt={user.user_metadata?.full_name || user.email}
+              src={user.imageUrl}
+              alt={user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.emailAddresses[0]?.emailAddress}
             />
             <AvatarFallback>
-              {user.user_metadata?.full_name?.charAt(0) || user.email?.charAt(0) || 'U'}
+              {user.firstName?.charAt(0) || user.lastName?.charAt(0) || user.emailAddresses[0]?.emailAddress?.charAt(0) || 'U'}
             </AvatarFallback>
           </Avatar>
         </Button>
@@ -64,9 +64,9 @@ export function AuthButton() {
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <div className="flex items-center justify-start gap-2 p-2">
           <div className="flex flex-col space-y-1 leading-none">
-            <p className="font-medium">{user.user_metadata?.full_name || 'User'}</p>
+            <p className="font-medium">{user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.firstName || user.lastName || 'User'}</p>
             <p className="w-[200px] truncate text-sm text-muted-foreground">
-              {user.email}
+              {user.emailAddresses[0]?.emailAddress}
             </p>
           </div>
         </div>

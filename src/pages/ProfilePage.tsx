@@ -40,8 +40,10 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!authLoading) {
       if (authUser) {
+        console.log('User is authenticated, loading profile...');
         loadUserProfile();
       } else {
+        console.log('User is not authenticated');
         // Reset state when user signs out
         setUser(null);
         setUserPapers([]);
@@ -57,7 +59,7 @@ export default function ProfilePage() {
     }
   }, [authLoading, authUser]);
 
-  const loadUserProfile = async () => {
+    const loadUserProfile = async () => {
     if (!authUser) {
       setIsLoading(false);
       return;
@@ -66,58 +68,50 @@ export default function ProfilePage() {
     try {
       setError(null);
       
-      // Fetch user profile from Supabase
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', authUser.id)
-        .single();
+      console.log('Auth user in ProfilePage:', authUser);
+      console.log('Auth user ID:', authUser?.id);
+      
+      // Try to get or create profile using supabaseHelpers
+      console.log('Trying to get existing profile...');
+      const { getCurrentUserId } = await import('@/lib/supabaseHelpers');
+      const profileId = await getCurrentUserId(authUser.id);
 
-      if (profileError) {
-        console.error('Error fetching profile:', profileError);
-        setError('Failed to load your profile. Please try refreshing the page.');
+      let profileData: any = profileId;
+
+      // Fetch user's papers using supabaseHelpers (which handles auth properly)
+      console.log('Fetching user papers for profile ID:', profileData);
+      const { getUserPapers } = await import('@/lib/supabaseHelpers');
+      const userPapersData = await getUserPapers(profileData);
+      console.log('User papers data:', userPapersData);
+
+            // Now fetch the full profile data using supabaseHelpers
+      const { getCurrentUserProfile } = await import('@/lib/supabaseHelpers');
+      const fullProfileData = await getCurrentUserProfile(authUser.id);
+
+      if (!fullProfileData) {
+        console.error('Error fetching full profile: No profile data returned');
+        setError('Failed to load your profile data. Please try refreshing the page.');
         setIsLoading(false);
         return;
       }
 
-      // Fetch user's papers from Supabase
-      const { data: papersData, error: papersError } = await supabase
-        .from('user_papers')
-        .select(`
-          *,
-          papers (
-            id,
-            title,
-            doi,
-            abstract,
-            year,
-            journal
-          )
-        `)
-        .eq('user_id', authUser.id);
-
-      if (papersError) {
-        console.error('Error fetching user papers:', papersError);
-        setError('Failed to load your library. Please try refreshing the page.');
-        setIsLoading(false);
-        return;
-      }
+      console.log('Full profile data:', fullProfileData);
 
       // Transform profile data to match User type
       const userData: User = {
-        id: profile.id,
-        name: profile.name || 'Unknown User',
-        handle: profile.handle || profile.id.slice(0, 8),
-        image: profile.image || null
+        id: fullProfileData.id, // This is the UUID from the database
+        name: fullProfileData.name || 'Unknown User',
+        handle: fullProfileData.handle || fullProfileData.id.slice(0, 8),
+        image: fullProfileData.image || null
       };
 
       // Calculate member since date
-      const memberSince = profile.created_at 
-        ? new Date(profile.created_at).getFullYear().toString()
+      const memberSince = fullProfileData.created_at 
+        ? new Date(fullProfileData.created_at).getFullYear().toString()
         : '2023';
 
       // Transform papers data to match UserPaper type
-      const transformedPapers: UserPaper[] = (papersData || []).map(p => ({
+      const transformedPapers: UserPaper[] = (userPapersData || []).map(p => ({
         id: p.id,
         user_id: p.user_id,
         paper_id: p.paper_id,
@@ -157,7 +151,6 @@ export default function ProfilePage() {
         image: userData.image || ''
       });
     } catch (error) {
-      console.error('Error loading user profile:', error);
       setError('An unexpected error occurred. Please try refreshing the page.');
     } finally {
       setIsLoading(false);
@@ -220,7 +213,6 @@ export default function ProfilePage() {
       .upload(filePath, file);
 
     if (uploadError) {
-      console.error('Error uploading image:', uploadError);
       throw new Error('Failed to upload image');
     }
 
@@ -252,10 +244,9 @@ export default function ProfilePage() {
           name: editForm.name.trim(),
           image: imageUrl.trim() || null
         })
-        .eq('id', authUser.id);
+        .eq('id', user.id);
 
       if (error) {
-        console.error('Error updating profile:', error);
         setError('Failed to update profile. Please try again.');
         return;
       }
@@ -272,7 +263,6 @@ export default function ProfilePage() {
       setImagePreview(null);
       setError(null);
     } catch (error) {
-      console.error('Error saving profile:', error);
       setError('An unexpected error occurred. Please try again.');
     } finally {
       setIsSaving(false);

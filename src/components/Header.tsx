@@ -28,9 +28,6 @@ export default function Header() {
           <Button variant="ghost" size="sm" asChild>
             <Link to="/terms">Terms</Link>
           </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/profile">My Profile</Link>
-          </Button>
           <AuthButton />
         </nav>
 
@@ -52,11 +49,6 @@ export default function Header() {
       {isMobileMenuOpen && (
         <div className="md:hidden border-b bg-background shadow-lg">
           <nav className="px-4 py-6 space-y-3">
-            <Button variant="ghost" size="lg" asChild className="w-full justify-start h-12">
-              <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)}>
-                My Profile
-              </Link>
-            </Button>
             <Button variant="ghost" size="lg" asChild className="w-full justify-start h-12">
               <a href="https://form.typeform.com/to/HBz7cKo8" target="_blank" rel="noopener noreferrer" onClick={() => setIsMobileMenuOpen(false)}>
                 Feedback
