@@ -83,6 +83,23 @@ const supabasePapers = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE
   // Note: No accessToken function, so it won't send JWT tokens
 });
 
+// Create a separate supabase client for user_papers queries that doesn't use JWT
+const supabaseUserPapers = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    storage: localStorage,
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce'
+  },
+  global: {
+    headers: {
+      'apikey': SUPABASE_PUBLISHABLE_KEY
+    }
+  }
+  // Note: No accessToken function, so it won't send JWT tokens
+});
+
 export const dataClient = {
   async getPaperById(id: string): Promise<Paper | null> {
     try {
@@ -535,7 +552,7 @@ export const dataClient = {
     }
 
     try {
-      let query = supabase
+      let query = supabaseUserPapers
         .from('user_papers')
         .select('*')
         .eq('user_id', dbUserId);
@@ -614,7 +631,7 @@ export const dataClient = {
     }
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseUserPapers
         .from('user_papers')
         .upsert({
           user_id: dbUserId,
@@ -678,7 +695,7 @@ export const dataClient = {
 
     try {
       console.log('getAggregatesForPaper: Executing first query for ratings');
-      const { data, error } = await supabase
+      const { data, error } = await supabaseUserPapers
         .from('user_papers')
         .select('rating')
         .eq('paper_id', paperId);
@@ -687,7 +704,7 @@ export const dataClient = {
         console.error('Error fetching paper aggregates:', error);
         // If RLS blocks access, return default stats instead of failing
         if (error.code === 'PGRST301' || error.message?.includes('Unauthorized')) {
-          console.log('RLS blocking access to user_papers, returning default stats');
+          console.log('JWT auth error, returning default stats');
           return { avgRating: 0, count: 0, latest: [], histogram: {1: 0, 2: 0, 3: 0, 4: 0, 5: 0} };
         }
         return { avgRating: 0, count: 0, latest: [], histogram: {1: 0, 2: 0, 3: 0, 4: 0, 5: 0} };
@@ -712,7 +729,7 @@ export const dataClient = {
       console.log('getAggregatesForPaper: Executing second query for latest reviews');
 
       // Get latest user papers for this paper - also handle RLS errors gracefully
-      const { data: latestData, error: latestError } = await supabase
+      const { data: latestData, error: latestError } = await supabaseUserPapers
         .from('user_papers')
         .select('*')
         .eq('paper_id', paperId)
@@ -742,7 +759,7 @@ export const dataClient = {
 
   async getTopReviewsForPaper(paperId: string, limit = 3): Promise<Array<UserPaper & { user: User }>> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseUserPapers
         .from('user_papers')
         .select(`
           *,
@@ -837,7 +854,7 @@ export const dataClient = {
     }
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseUserPapers
         .from('user_papers')
         .select('*')
         .eq('user_id', dbUserId)

@@ -1,6 +1,29 @@
 import { supabase } from '@/integrations/supabase/client';
 import { GuestStorage } from './guestStorage';
 import { decodeDOIFromUrl } from './doi';
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@/integrations/supabase/types';
+
+// Supabase configuration
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://xaibkgwkdzzipntvzldg.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhaWJrZ3drZHp6aXBudHZ6bGRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3MjEzNzEsImV4cCI6MjA3MjI5NzM3MX0.dj2lWGT1IzTNhno3uEVRd2eANWw42mLJvoq6V_-FHm0";
+
+// Create a separate supabase client for user_papers queries that doesn't use JWT
+const supabaseUserPapers = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    storage: localStorage,
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce'
+  },
+  global: {
+    headers: {
+      'apikey': SUPABASE_PUBLISHABLE_KEY
+    }
+  }
+  // Note: No accessToken function, so it won't send JWT tokens
+});
 
 // Helper to check if user is in guest mode
 function isGuestMode() {
@@ -147,7 +170,7 @@ export async function upsertUserPaper(input: {
   if (!userId) throw new Error('Not signed in');
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseUserPapers
       .from('user_papers')
       .upsert({
         user_id: userId,
@@ -223,7 +246,7 @@ export async function getUserPaper(paperId: string, clerkUserId?: string) {
   if (!userId) return null;
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseUserPapers
       .from('user_papers')
       .select('*')
       .eq('user_id', userId)
@@ -261,7 +284,7 @@ export async function getUserPapers(userId: string, shelf?: 'WANT' | 'READING' |
   }
 
   try {
-    let query = supabase
+    let query = supabaseUserPapers
       .from('user_papers')
       .select(`
         *,
@@ -332,7 +355,7 @@ export async function getPaperAggregates(paperId: string) {
 
   try {
     // Get ratings - try with error handling for RLS issues
-    const { data: ratingData, error: ratingError } = await supabase
+    const { data: ratingData, error: ratingError } = await supabaseUserPapers
       .from('user_papers')
       .select('rating')
       .eq('paper_id', paperId);
@@ -354,7 +377,7 @@ export async function getPaperAggregates(paperId: string) {
     const avg = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
 
     // Get latest reviews - also handle RLS errors gracefully
-    const { data: latestData, error: latestError } = await supabase
+    const { data: latestData, error: latestError } = await supabaseUserPapers
       .from('user_papers')
       .select('*')
       .eq('paper_id', paperId)
@@ -466,7 +489,7 @@ export async function getTrendingPapers(limit = 12, timePeriod: 'week' | 'month'
 
   try {
     // Build query with optional date filter
-    let query = supabase
+    let query = supabaseUserPapers
       .from('user_papers')
       .select(`
         paper_id,
