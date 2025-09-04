@@ -173,8 +173,8 @@ export default function PaperPage() {
 
     setIsRefreshing(true);
     try {
-      // Use lookupPaperByDOI which handles caching and API calls properly
-      const freshPaperData = await dataClient.lookupPaperByDOI(paper.doi);
+      // Use refreshPaperByDOI to explicitly fetch fresh data from APIs
+      const freshPaperData = await dataClient.refreshPaperByDOI(paper.doi);
       if (freshPaperData && freshPaperData.abstract) {
         const freshMetadata = {
           doi: freshPaperData.doi,
@@ -198,6 +198,7 @@ export default function PaperPage() {
       }
     } catch (error) {
       // Don't show error to user, just log it
+      console.error('Error refreshing paper metadata:', error);
     } finally {
       setIsRefreshing(false);
     }

@@ -160,10 +160,14 @@ export async function upsertUserPaper(input: {
 
     if (error) {
       console.error('Supabase upsert error:', error);
-      // If RLS blocks access, throw a more specific error
+      // If RLS blocks access, try with guest storage as fallback
       if (error.code === 'PGRST301' || error.message?.includes('Unauthorized')) {
-        console.log('RLS blocking access to user_papers for upsert, throwing specific error');
-        throw new Error('Unable to save paper changes due to authentication issues. Please try refreshing the page.');
+        console.log('JWT auth error, falling back to guest storage');
+        return GuestStorage.upsertUserPaper(`${input.paper_id}`, {
+          shelf: input.shelf,
+          rating: input.rating,
+          review: input.review
+        });
       }
       throw error;
     }
@@ -172,6 +176,15 @@ export async function upsertUserPaper(input: {
     return data as any; // Cast to match UserPaper type
   } catch (error) {
     console.error('Exception in upsertUserPaper:', error);
+    // If it's an auth error, fall back to guest storage
+    if (error.code === 'PGRST301' || error.message?.includes('Unauthorized')) {
+      console.log('JWT auth error in exception, falling back to guest storage');
+      return GuestStorage.upsertUserPaper(`${input.paper_id}`, {
+        shelf: input.shelf,
+        rating: input.rating,
+        review: input.review
+      });
+    }
     // Re-throw the error so the UI can handle it appropriately
     throw error;
   }
@@ -219,16 +232,21 @@ export async function getUserPaper(paperId: string, clerkUserId?: string) {
 
     if (error) {
       console.error('Error fetching user paper:', error);
-      // If RLS blocks access, return null instead of failing
+      // If RLS blocks access, try guest storage as fallback
       if (error.code === 'PGRST301' || error.message?.includes('Unauthorized')) {
-        console.log('RLS blocking access to user_papers for getUserPaper, returning null');
-        return null;
+        console.log('JWT auth error, falling back to guest storage for getUserPaper');
+        return GuestStorage.getUserPaper(paperId);
       }
       return null;
     }
     return data as any; // Cast to match UserPaper type
   } catch (error) {
     console.error('Exception in getUserPaper:', error);
+    // If it's an auth error, fall back to guest storage
+    if (error.code === 'PGRST301' || error.message?.includes('Unauthorized')) {
+      console.log('JWT auth error in exception, falling back to guest storage');
+      return GuestStorage.getUserPaper(paperId);
+    }
     // Return null on any error to prevent app crashes
     return null;
   }
@@ -269,7 +287,7 @@ export async function getUserPapers(userId: string, shelf?: 'WANT' | 'READING' |
       console.error('Error fetching user papers:', error);
       // If RLS blocks access, return empty array instead of failing
       if (error.code === 'PGRST301' || error.message?.includes('Unauthorized')) {
-        console.log('RLS blocking access to user_papers for getUserPapers, returning empty array');
+        console.log('JWT auth error, returning empty array');
         return [];
       }
       return [];
@@ -323,7 +341,7 @@ export async function getPaperAggregates(paperId: string) {
       console.error('Error fetching paper aggregates:', ratingError);
       // If RLS blocks access, return default stats instead of failing
       if (ratingError.code === 'PGRST301' || ratingError.message?.includes('Unauthorized')) {
-        console.log('RLS blocking access to user_papers, returning default stats');
+        console.log('JWT auth error, returning default stats');
         return { avgRating: 0, count: 0, latest: [] };
       }
       return { avgRating: 0, count: 0, latest: [] };
@@ -469,7 +487,7 @@ export async function getTrendingPapers(limit = 12, timePeriod: 'week' | 'month'
       console.error('Error fetching trending papers:', error);
       // If RLS blocks access, return empty array instead of failing
       if (error.code === 'PGRST301' || error.message?.includes('Unauthorized')) {
-        console.log('RLS blocking access to user_papers for trending papers, returning empty array');
+        console.log('JWT auth error, returning empty array');
         return [];
       }
       return [];

@@ -3,6 +3,8 @@
 import { Paper, Author, Journal, User, UserPaper, Shelf, PaperAggregates } from '@/types';
 import { normalizeDOI, decodeDOIFromUrl } from './doi';
 import { supabase } from '@/integrations/supabase/client';
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@/integrations/supabase/types';
 import { getPaperByDOI, multiApiToPaper, searchPapersByKeywords, getPaperByPMID } from '@/lib/crossref';
 import { GuestStorage } from './guestStorage';
 
@@ -12,6 +14,10 @@ let isGuestMode = false;
 export function setGuestMode(guest: boolean) {
   isGuestMode = guest;
 }
+
+// Supabase configuration
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://xaibkgwkdzzipntvzldg.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhaWJrZ3drZHp6aXBudHZ6bGRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3MjEzNzEsImV4cCI6MjA3MjI5NzM3MX0.dj2lWGT1IzTNhno3uEVRd2eANWw42mLJvoq6V_-FHm0";
 
 // Helper function to convert database row (snake_case) to TypeScript interface (camelCase)
 export function mapDatabasePaperToPaper(dbPaper: any): Paper {
@@ -60,6 +66,23 @@ const apiCallCache = new Map<string, number>();
 let lastDataClientApiCallTime = 0;
 const MIN_DATA_CLIENT_API_INTERVAL = 3000; // 3 seconds between any API calls in dataClient
 
+// Create a separate supabase client for paper queries that doesn't use JWT
+const supabasePapers = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    storage: localStorage,
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce'
+  },
+  global: {
+    headers: {
+      'apikey': SUPABASE_PUBLISHABLE_KEY
+    }
+  }
+  // Note: No accessToken function, so it won't send JWT tokens
+});
+
 export const dataClient = {
   async getPaperById(id: string): Promise<Paper | null> {
     try {
@@ -83,8 +106,8 @@ export const dataClient = {
     try {
       const normalizedDOI = normalizeDOI(doi);
       
-      // Use limit(1) instead of .single() to avoid 406 errors when no rows found
-      const { data, error } = await supabase
+      // Use the papers client that doesn't send JWT tokens to avoid auth issues
+      const { data, error } = await supabasePapers
         .from('papers')
         .select('*')
         .eq('doi', normalizedDOI)
@@ -112,74 +135,28 @@ export const dataClient = {
       const normalizedDOI = normalizeDOI(doi);
       console.log('dataClient: Looking up DOI', normalizedDOI);
 
-      // Check if we recently made an API call for this DOI
-      const lastCallTime = apiCallCache.get(normalizedDOI);
-      const now = Date.now();
-      if (lastCallTime && (now - lastCallTime) < 30000) { // 30 second cooldown
-        console.log('dataClient: API call too recent, using cached data only');
-        const existingPaper = await this.getPaperByDOI(normalizedDOI);
-        return existingPaper;
-      }
-
       // First check if paper exists in Supabase
       const existingPaper = await this.getPaperByDOI(normalizedDOI);
       console.log('dataClient: Existing paper in DB', existingPaper);
       
-      // If paper exists and has basic data (title), don't make API calls unless explicitly requested
-      // Only refresh if the paper is very old (7+ days) or missing critical data
+      // If paper exists in database, return it without making API calls
       if (existingPaper && existingPaper.title) {
-        const paperAge = existingPaper.created_at ? 
-          Date.now() - new Date(existingPaper.created_at).getTime() : Infinity;
-        
-        // Only refresh if older than 7 days AND missing abstract
-        const shouldRefresh = paperAge > (7 * 24 * 60 * 60 * 1000) && !existingPaper.abstract;
-        
-        if (!shouldRefresh) {
-          console.log('dataClient: Returning existing paper (recent or has title)');
-          return existingPaper;
-        }
-        
-        console.log('dataClient: Paper exists but is old and missing abstract, refreshing data');
-        
-        // Check if we recently made an API call for this DOI
-        const lastCallTime = apiCallCache.get(normalizedDOI);
-        const now = Date.now();
-        if (lastCallTime && (now - lastCallTime) < 30000) { // 30 second cooldown
-          console.log('dataClient: API call too recent, using cached data only');
-          return existingPaper;
-        }
-        
-        // Update cache timestamp
-        apiCallCache.set(normalizedDOI, now);
-        
-        // Fetch fresh data from multiple APIs
-        const multiApiPaper = await getPaperByDOI(normalizedDOI);
-        console.log('dataClient: Fresh API data', multiApiPaper);
-        if (multiApiPaper && multiApiPaper.title) {
-          const updatedPaperData = multiApiToPaper(multiApiPaper);
-          
-          // Update the existing paper with fresh data
-          const { data: updatedPaper, error: updateError } = await supabase
-            .from('papers')
-            .update(mapPaperToDatabase(updatedPaperData))
-            .eq('doi', normalizedDOI)
-            .select()
-            .single();
-
-          if (!updateError && updatedPaper) {
-            return mapDatabasePaperToPaper(updatedPaper);
-          }
-        }
-        
-        // If API call failed or returned no data, return existing paper
-        console.log('dataClient: API refresh failed, returning existing paper');
+        console.log('dataClient: Returning existing paper from database');
         return existingPaper;
       }
 
-      // If not found, fetch from multiple APIs
-      console.log('dataClient: Fetching from APIs');
+      // If not found in database, fetch from multiple APIs
+      console.log('dataClient: Paper not in database, fetching from APIs');
       
-      // Update cache timestamp (already checked above)
+      // Check if we recently made an API call for this DOI
+      const lastCallTime = apiCallCache.get(normalizedDOI);
+      const now = Date.now();
+      if (lastCallTime && (now - lastCallTime) < 30000) { // 30 second cooldown
+        console.log('dataClient: API call too recent, cannot fetch new paper');
+        return null;
+      }
+      
+      // Update cache timestamp
       apiCallCache.set(normalizedDOI, now);
       
       // Add a small delay to prevent rapid retries that hit rate limits
@@ -264,6 +241,68 @@ export const dataClient = {
     } catch (error) {
       console.log('dataClient: Lookup exception', error);
       return null;
+    }
+  },
+
+  async refreshPaperByDOI(doi: string): Promise<Paper | null> {
+    console.log('dataClient: refreshPaperByDOI called with', doi);
+    try {
+      const normalizedDOI = normalizeDOI(doi);
+      console.log('dataClient: Refreshing DOI', normalizedDOI);
+
+      // Check if we recently made an API call for this DOI
+      const lastCallTime = apiCallCache.get(normalizedDOI);
+      const now = Date.now();
+      if (lastCallTime && (now - lastCallTime) < 30000) { // 30 second cooldown
+        console.log('dataClient: API call too recent, using existing data');
+        return await this.getPaperByDOI(normalizedDOI);
+      }
+
+      // Update cache timestamp
+      apiCallCache.set(normalizedDOI, now);
+
+      // Fetch fresh data from multiple APIs
+      const multiApiPaper = await getPaperByDOI(normalizedDOI);
+      console.log('dataClient: Fresh API data', multiApiPaper);
+      
+      if (!multiApiPaper || !multiApiPaper.title) {
+        console.log('dataClient: No valid paper data from APIs');
+        return await this.getPaperByDOI(normalizedDOI); // Return existing data if API fails
+      }
+
+      // Convert to paper format
+      const updatedPaperData = multiApiToPaper(multiApiPaper);
+      console.log('dataClient: Converted updated paper data', updatedPaperData);
+
+      // Update the existing paper with fresh data
+      const { data: updatedPaper, error: updateError } = await supabase
+        .from('papers')
+        .update(mapPaperToDatabase(updatedPaperData))
+        .eq('doi', normalizedDOI)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('dataClient: Update error during refresh', updateError);
+        // If update fails due to auth, return the fresh data as guest paper
+        if (updateError.code === 'PGRST301' || updateError.message?.includes('Unauthorized')) {
+          console.log('dataClient: Auth error on refresh update, returning fresh guest paper');
+          const guestPaper = {
+            ...updatedPaperData,
+            id: `guest-${normalizedDOI.replace(/[^a-zA-Z0-9]/g, '-')}`
+          };
+          return guestPaper;
+        }
+        // Return existing paper if update fails
+        return await this.getPaperByDOI(normalizedDOI);
+      }
+
+      console.log('dataClient: Successfully refreshed paper', updatedPaper);
+      return mapDatabasePaperToPaper(updatedPaper);
+    } catch (error) {
+      console.log('dataClient: Refresh exception', error);
+      // Return existing paper on any error
+      return await this.getPaperByDOI(doi);
     }
   },
 
@@ -512,7 +551,7 @@ export const dataClient = {
         console.error('Error listing user papers:', error);
         // If RLS blocks access, return empty array instead of failing
         if (error.code === 'PGRST301' || error.message?.includes('Unauthorized')) {
-          console.log('RLS blocking access to user_papers for listing, returning empty array');
+          console.log('JWT auth error, returning empty array');
           return [];
         }
         return [];
@@ -535,7 +574,7 @@ export const dataClient = {
         const doi = decodeDOIFromUrl(encodedDoi);
 
         // Ensure the paper exists in database
-        const realPaper = await this.lookupPaperByDOI(doi);
+        const realPaper = await this.getPaperByDOI(doi);
         if (realPaper) {
           // Use the real paper ID
           input.paperId = realPaper.id;
@@ -593,7 +632,7 @@ export const dataClient = {
         console.error('Error upserting user paper:', error);
         // If RLS blocks access, throw a more specific error
         if (error.code === 'PGRST301' || error.message?.includes('Unauthorized')) {
-          console.log('RLS blocking access to user_papers for upsert, throwing specific error');
+          console.log('JWT auth error, throwing specific error');
           throw new Error('Unable to save paper changes due to authentication issues. Please try refreshing the page.');
         }
         throw error;
@@ -617,8 +656,8 @@ export const dataClient = {
         const encodedDoi = paperId.slice(guestPrefix.length);
         const doi = decodeDOIFromUrl(encodedDoi);
 
-        // Ensure the paper exists in database
-        const realPaper = await this.lookupPaperByDOI(doi);
+        // Use papers client to lookup the paper (no JWT needed)
+        const realPaper = await this.getPaperByDOI(doi);
         if (realPaper) {
           // Use the real paper ID
           paperId = realPaper.id;
@@ -723,7 +762,7 @@ export const dataClient = {
         console.error('Error fetching top reviews:', error);
         // If RLS blocks access, return empty array instead of failing
         if (error.code === 'PGRST301' || error.message?.includes('Unauthorized')) {
-          console.log('RLS blocking access to user_papers for top reviews, returning empty array');
+          console.log('JWT auth error, returning empty array');
           return [];
         }
         return [];
@@ -772,7 +811,7 @@ export const dataClient = {
         const doi = decodeDOIFromUrl(encodedDoi);
 
         // Ensure the paper exists in database
-        const realPaper = await this.lookupPaperByDOI(doi);
+        const realPaper = await this.getPaperByDOI(doi);
         if (realPaper) {
           // Use the real paper ID
           paperId = realPaper.id;
@@ -809,7 +848,7 @@ export const dataClient = {
         console.error('Error fetching current user paper:', error);
         // If RLS blocks access, return null instead of failing
         if (error.code === 'PGRST301' || error.message?.includes('Unauthorized')) {
-          console.log('RLS blocking access to user_papers for current user paper, returning null');
+          console.log('JWT auth error, returning null');
           return null;
         }
         return null;
