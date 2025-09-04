@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { isValidDOI, normalizeDOI } from '@/lib/doi';
-import { paperDoiUrl, paperPmidUrl } from '@/lib/routing';
+import { paperDoiUrl, paperPmidUrl, paperUrl } from '@/lib/routing';
+import { dataClient } from '@/lib/dataClient';
 
 type SearchMode = 'doi' | 'pmid' | 'keywords';
 
@@ -14,17 +15,20 @@ interface SearchBarProps {
   placeholder?: string;
   autoFocus?: boolean;
   isSearching?: boolean;
+  onPaperLoaded?: (paper: any) => void;
 }
 
 export function SearchBar({
   onSearch,
   placeholder = "Search papers...",
   autoFocus = false,
-  isSearching = false
+  isSearching = false,
+  onPaperLoaded
 }: SearchBarProps) {
   const [query, setQuery] = useState('');
   const [selectedMode, setSelectedMode] = useState<SearchMode | null>(null);
   const [validationError, setValidationError] = useState<string>('');
+  const [isLoadingPaper, setIsLoadingPaper] = useState(false);
   const navigate = useNavigate();
 
   // Validation patterns
@@ -73,7 +77,7 @@ export function SearchBar({
     setValidationError(error);
   }, [query, selectedMode]);
 
-    const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log('SearchBar: Form submitted', { selectedMode, query, validationError, isSubmitDisabled });
     
@@ -88,17 +92,71 @@ export function SearchBar({
 
     switch (selectedMode) {
       case 'doi':
-        const normalizedDOI = normalizeDOI(trimmedQuery);
-        console.log('SearchBar: Navigating to DOI URL', paperDoiUrl(normalizedDOI));
-        navigate(paperDoiUrl(normalizedDOI));
+        await handleDOISearch(trimmedQuery);
         break;
       case 'pmid':
-        console.log('SearchBar: Navigating to PMID URL', paperPmidUrl(trimmedQuery));
-        navigate(paperPmidUrl(trimmedQuery));
+        await handlePMIDSearch(trimmedQuery);
         break;
       case 'keywords':
         onSearch?.(trimmedQuery, selectedMode);
         break;
+    }
+  };
+
+  const handleDOISearch = async (doi: string) => {
+    setIsLoadingPaper(true);
+    try {
+      const normalizedDOI = normalizeDOI(doi);
+      console.log('SearchBar: Loading DOI', normalizedDOI);
+      
+      const paperData = await dataClient.lookupPaperByDOI(normalizedDOI);
+      console.log('SearchBar: DOI lookup result', paperData);
+      
+      if (paperData) {
+        // If we have a callback, pass the paper data
+        if (onPaperLoaded) {
+          onPaperLoaded(paperData);
+        } else {
+          // Navigate to the paper page
+          const paperLink = paperUrl(paperData);
+          navigate(paperLink, { state: { paper: paperData } });
+        }
+      } else {
+        setValidationError('Paper not found. Please check the DOI and try again.');
+      }
+    } catch (error) {
+      console.error('SearchBar: Error loading DOI', error);
+      setValidationError('Error loading paper. Please try again.');
+    } finally {
+      setIsLoadingPaper(false);
+    }
+  };
+
+  const handlePMIDSearch = async (pmid: string) => {
+    setIsLoadingPaper(true);
+    try {
+      console.log('SearchBar: Loading PMID', pmid);
+      
+      const paperData = await dataClient.lookupPaperByPMID(pmid);
+      console.log('SearchBar: PMID lookup result', paperData);
+      
+      if (paperData) {
+        // If we have a callback, pass the paper data
+        if (onPaperLoaded) {
+          onPaperLoaded(paperData);
+        } else {
+          // Navigate to the paper page
+          const paperLink = paperUrl(paperData);
+          navigate(paperLink, { state: { paper: paperData } });
+        }
+      } else {
+        setValidationError('Paper not found. Please check the PubMed ID and try again.');
+      }
+    } catch (error) {
+      console.error('SearchBar: Error loading PMID', error);
+      setValidationError('Error loading paper. Please try again.');
+    } finally {
+      setIsLoadingPaper(false);
     }
   };
 
@@ -115,7 +173,7 @@ export function SearchBar({
     setValidationError('');
   };
 
-  const isSubmitDisabled = !selectedMode || !query.trim() || !!validationError;
+  const isSubmitDisabled = !selectedMode || !query.trim() || !!validationError || isLoadingPaper;
   
   console.log('SearchBar render state:', {
     selectedMode,
@@ -222,7 +280,12 @@ export function SearchBar({
               disabled={isSubmitDisabled || isSearching}
               className="px-3 sm:px-6 py-3 h-12 rounded-none border-t sm:border-t-0 sm:border-l relative overflow-hidden min-w-[48px] sm:min-w-[80px]"
             >
-              {isSearching && selectedMode === 'keywords' ? (
+              {isLoadingPaper ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="hidden sm:inline">Loading...</span>
+                </div>
+              ) : isSearching && selectedMode === 'keywords' ? (
                 <div className="flex items-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin" />
                   <span className="hidden sm:inline">Searching...</span>
@@ -235,7 +298,7 @@ export function SearchBar({
               )}
               
               {/* Animated paper airplane for keyword search */}
-              {isSearching && selectedMode === 'keywords' && (
+              {isSearching && selectedMode === 'keywords' && !isLoadingPaper && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <Plane className="w-6 h-6 text-primary animate-fly" 
                          style={{ 

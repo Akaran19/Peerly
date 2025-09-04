@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Paper, PaperAggregates } from '@/types';
 import { SearchBar } from '@/components/SearchBar';
 import { PaperCard } from '@/components/PaperCard';
@@ -8,6 +8,7 @@ import { AuthButton } from '@/components/AuthButton';
 import { getRecentPapers, getTrendingPapers, getPaperAggregates } from '@/lib/supabaseHelpers';
 import { mapDatabasePaperToPaper, dataClient } from '@/lib/dataClient';
 import { paperDoiUrl, paperPmidUrl } from '@/lib/routing';
+import { paperUrl } from '@/lib/routing';
 import { GraduationCap, TrendingUp, Clock, Flame, AlertCircle, X, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '../components/ui/alert';
@@ -16,11 +17,14 @@ import Header from '@/components/Header';
 
 export default function HomePage() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [papers, setPapers] = useState<Paper[]>([]);
   const [paperAggregates, setPaperAggregates] = useState<Record<string, PaperAggregates>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'recent' | 'trending'>('recent');
   const [trendingPeriod, setTrendingPeriod] = useState<'week' | 'month' | 'all'>('all');
+  const [isLoadingPaper, setIsLoadingPaper] = useState(false);
+  const [loadedPaper, setLoadedPaper] = useState<Paper | null>(null);
   const [error, setError] = useState<{ type: string; message: string; doi?: string } | null>(null);
   
   // Pagination state
@@ -77,6 +81,13 @@ export default function HomePage() {
 
   const dismissError = () => {
     setError(null);
+  };
+
+  const handlePaperLoaded = (paper: Paper) => {
+    setLoadedPaper(paper);
+    // Navigate to the paper page with the loaded data
+    const paperLink = paperUrl(paper);
+    navigate(paperLink, { state: { paper } });
   };
 
   const loadInitialData = async () => {
@@ -228,7 +239,7 @@ export default function HomePage() {
           </div>
         </div>        {/* Search Section */}
         <div className="max-w-2xl mx-auto mb-6 md:mb-8 px-4 md:px-0">
-          <SearchBar onSearch={handleSearch} isSearching={isLoading} />
+          <SearchBar onSearch={handleSearch} isSearching={isLoading} onPaperLoaded={handlePaperLoaded} />
           <p className="text-sm text-muted-foreground text-center mt-2">
             Choose DOI, PMID, or Keywords before searching.
           </p>
@@ -327,6 +338,7 @@ export default function HomePage() {
                   showAbstract
                   aggregates={paperAggregates[paper.id]}
                   showActions
+                  onPaperLoaded={handlePaperLoaded}
                 />
               ))}
             </div>

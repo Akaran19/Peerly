@@ -15,9 +15,10 @@ interface PaperCardProps {
   showAbstract?: boolean;
   aggregates?: PaperAggregates;
   showActions?: boolean;
+  onPaperLoaded?: (paper: Paper) => void;
 }
 
-export function PaperCard({ paper, showAbstract = false, aggregates, showActions = false }: PaperCardProps) {
+export function PaperCard({ paper, showAbstract = false, aggregates, showActions = false, onPaperLoaded }: PaperCardProps) {
   const [showActionBar, setShowActionBar] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
@@ -39,21 +40,34 @@ export function PaperCard({ paper, showAbstract = false, aggregates, showActions
       if (paper.doi) {
         const paperData = await dataClient.lookupPaperByDOI(paper.doi);
         if (paperData) {
-          // Navigate to the paper page
-          const paperLink = getPaperLink();
-          navigate(paperLink);
+          // If we have a callback, use it
+          if (onPaperLoaded) {
+            onPaperLoaded(paperData);
+          } else {
+            // Navigate to the paper page
+            const paperLink = getPaperLink();
+            navigate(paperLink, { state: { paper: paperData } });
+          }
           return;
         }
       }
 
       // If no DOI or lookup failed, navigate directly
-      const paperLink = getPaperLink();
-      navigate(paperLink);
+      if (onPaperLoaded) {
+        onPaperLoaded(paper);
+      } else {
+        const paperLink = getPaperLink();
+        navigate(paperLink, { state: { paper } });
+      }
     } catch (error) {
       console.error('Error loading paper data:', error);
       // Navigate anyway if there's an error
-      const paperLink = getPaperLink();
-      navigate(paperLink);
+      if (onPaperLoaded) {
+        onPaperLoaded(paper);
+      } else {
+        const paperLink = getPaperLink();
+        navigate(paperLink, { state: { paper } });
+      }
     } finally {
       setIsLoading(false);
     }

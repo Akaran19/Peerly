@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Paper, PaperAggregates } from '@/types';
 import { dataClient } from '@/lib/dataClient';
@@ -16,6 +16,7 @@ import Header from '@/components/Header';
 export default function PaperPage() {
   const params = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const paperIdAndSlug = params.paperIdAndSlug as string;
 
   const [paper, setPaper] = useState<Paper | null>(null);
@@ -26,8 +27,6 @@ export default function PaperPage() {
   const [notFound, setNotFound] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isLookupLoading, setIsLookupLoading] = useState(false);
-  const isLoadingRef = useRef(false);
 
   // Helper function to generate Google Scholar URL for author search
   const getGoogleScholarUrl = (authorName: string): string => {
@@ -36,152 +35,29 @@ export default function PaperPage() {
   };
 
   useEffect(() => {
-    // Reset loading state when slug changes
-    setIsLoading(true);
-    setNotFound(false);
-    setPaper(null);
-    setRichMetadata(null);
-    setAggregates(null);
-    setError(null);
-    setIsLookupLoading(false);
-    isLoadingRef.current = false;
+    // Check if paper data was passed via location state
+    const locationState = location.state as { paper?: Paper };
+    if (locationState?.paper) {
+      console.log('PaperPage: Using paper data from location state', locationState.paper);
+      setPaper(locationState.paper);
+      loadAggregates(locationState.paper.id);
+      loadRichMetadata(locationState.paper);
+      setIsLoading(false);
+      return;
+    }
 
-    console.log('PaperPage: useEffect triggered for', paperIdAndSlug);
+    // Fallback: load paper data from URL
     loadPaperData();
   }, [paperIdAndSlug]);
 
   const loadPaperData = async () => {
-    if (isLoadingRef.current) {
-      console.log('PaperPage: loadPaperData skipped due to loading ref');
-      return;
-    }
-
-    isLoadingRef.current = true;
-    console.log('PaperPage: loadPaperData started');
-
     try {
       let paperId = extractPaperId(paperIdAndSlug);
       console.log('PaperPage: Loading paper data for', paperIdAndSlug, 'extracted paperId:', paperId);
 
-      // Handle DOI-based lookups
-      if (paperIdAndSlug.startsWith('doi-')) {
-        const encodedDoi = paperIdAndSlug.replace('doi-', '');
-        const doi = decodeDOIFromUrl(encodedDoi);
-        console.log('PaperPage: Handling DOI lookup for', doi);
-
-        // First check if this came from a search result (web- prefix)
-        const isFromSearch = paperIdAndSlug.includes('web-');
-
-        // Show loading state during lookup
-        setIsLookupLoading(true);
-        setIsLoading(false); // Hide the main loading to show lookup loading
-
-        try {
-          const paperData = await dataClient.lookupPaperByDOI(doi);
-          console.log('PaperPage: DOI lookup result', paperData);
-          if (paperData) {
-            // If the returned paper has a proper UUID ID, redirect to the standard URL
-            if (paperData.id && paperData.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-              const newUrl = paperUrl(paperData);
-              console.log('PaperPage: Redirecting to:', newUrl);
-              navigate(newUrl, { replace: true });
-              // Reset loading state after redirect
-              setIsLoading(false);
-              isLoadingRef.current = false;
-              setIsLookupLoading(false);
-              return;
-            } else {
-              // For web results or guest mode, use the paper data directly
-              console.log('PaperPage: Using paper data directly (no redirect)');
-              setPaper(paperData);
-              setAggregates(await dataClient.getAggregatesForPaper(paperData.id));
-              setIsLookupLoading(false);
-              setIsLoading(false);
-              isLoadingRef.current = false;
-              return;
-            }
-          } else {
-            console.log('PaperPage: DOI lookup returned null');
-            // Show a more informative error message
-            const errorMessage = isFromSearch
-              ? `This paper was found in search results but the DOI "${doi}" could not be verified in academic databases. This may happen when:\n• The paper metadata is incomplete or outdated\n• The DOI format is unusual\n• The paper exists but isn't indexed by our data sources\n\nTry searching for the paper by title or author name instead.`
-              : `The DOI "${doi}" was not found in any academic databases (CrossRef, OpenAlex, or Semantic Scholar).\n\nThis could mean:\n• The DOI is incorrect or contains a typo\n• The paper was published in a journal not indexed by these services\n• The paper may be too old or from a very specialized field\n\nPlease verify the DOI is correct and try again.`;
-            setError(errorMessage);
-            setIsLookupLoading(false);
-            setIsLoading(false);
-            isLoadingRef.current = false;
-            return;
-          }
-        } catch (doiError) {
-          console.error('PaperPage: Error in DOI lookup', doiError);
-          setNotFound(true);
-          setIsLookupLoading(false);
-          setIsLoading(false);
-          isLoadingRef.current = false;
-          return;
-        }
-      }
-
-      // Handle PMID-based lookups
-      if (paperIdAndSlug.startsWith('pmid-')) {
-        const pmid = paperIdAndSlug.replace('pmid-', '');
-        console.log('PaperPage: Handling PMID lookup for', pmid);
-
-        // Show loading state during lookup
-        setIsLookupLoading(true);
-        setIsLoading(false); // Hide the main loading to show lookup loading
-
-        try {
-          const paperData = await dataClient.lookupPaperByPMID(pmid);
-          console.log('PaperPage: PMID lookup result', paperData);
-          if (paperData) {
-            // If the returned paper has a proper UUID ID, redirect to the standard URL
-            if (paperData.id && paperData.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-              const newUrl = paperUrl(paperData);
-              navigate(newUrl, { replace: true });
-              // Reset loading state after redirect
-              setIsLoading(false);
-              isLoadingRef.current = false;
-              setIsLookupLoading(false);
-              return;
-            } else {
-              // For web results or guest mode, use the paper data directly
-              setPaper(paperData);
-              setAggregates(await dataClient.getAggregatesForPaper(paperData.id));
-              setIsLookupLoading(false);
-              setIsLoading(false);
-              isLoadingRef.current = false;
-              return;
-            }
-          } else {
-            console.log('PaperPage: PMID lookup returned null');
-            setError(`The PubMed ID "${pmid}" was not found in any academic databases. Please check that the PMID is correct and try again.`);
-            setIsLookupLoading(false);
-            setIsLoading(false);
-            isLoadingRef.current = false;
-            return;
-          }
-        } catch (pmidError) {
-          console.error('PaperPage: Error in PMID lookup', pmidError);
-          setNotFound(true);
-          setIsLookupLoading(false);
-          setIsLoading(false);
-          isLoadingRef.current = false;
-          return;
-        }
-      }
-
-      // Skip the paperId check for DOI/PMID lookups since they were handled above
-      if (paperIdAndSlug.startsWith('doi-') || paperIdAndSlug.startsWith('pmid-')) {
-        // These should have been handled above, if we reach here something went wrong
-        setNotFound(true);
-        return;
-      }
-
       if (!paperId) {
         setNotFound(true);
         setIsLoading(false);
-        isLoadingRef.current = false;
         return;
       }
 
@@ -190,7 +66,6 @@ export default function PaperPage() {
       if (!paperData || !paperData.id) {
         setNotFound(true);
         setIsLoading(false);
-        isLoadingRef.current = false;
         return;
       }
 
@@ -200,102 +75,95 @@ export default function PaperPage() {
         const newUrl = paperUrl(paperData);
         const currentPath = window.location.pathname;
         if (newUrl !== currentPath) {
-          navigate(newUrl, { replace: true });
-          // Reset loading state after redirect
-          setIsLoading(false);
-          isLoadingRef.current = false;
+          navigate(newUrl, { replace: true, state: { paper: paperData } });
           return;
         }
       }
 
-      // Fetch rich metadata from multiple APIs for display (only if not already stored)
-      let richMetadata = null;
-      const needsRichData = !paperData.abstract;
-
-      if (needsRichData) {
-        setIsLoadingRichData(true);
-        try {
-          // Use the existing lookupPaperByDOI which already handles API calls and caching
-          const freshPaperData = await dataClient.lookupPaperByDOI(paperData.doi);
-          if (freshPaperData && freshPaperData.abstract) {
-            richMetadata = {
-              doi: freshPaperData.doi,
-              title: freshPaperData.title,
-              abstract: freshPaperData.abstract,
-              year: freshPaperData.year,
-              journal: freshPaperData.journal || undefined,
-              conference: freshPaperData.conference || undefined,
-              authors: freshPaperData.authors || [],
-              referencesCount: freshPaperData.referencesCount || undefined,
-              citationCount: freshPaperData.citationCount || undefined,
-              publisher: freshPaperData.publisher || undefined,
-              type: freshPaperData.type || undefined,
-              pdfUrl: freshPaperData.pdfUrl || undefined,
-              htmlUrl: freshPaperData.htmlUrl || undefined
-            };
-            // Update the paper state with fresh data
-            setPaper(freshPaperData);
-          }
-        } catch (error) {
-          // Failed to fetch rich metadata, using stored data only
-        } finally {
-          setIsLoadingRichData(false);
-        }
-      } else {
-        // Use stored data for rich metadata display
-        richMetadata = {
-          doi: paperData.doi,
-          title: paperData.title,
-          abstract: paperData.abstract,
-          year: paperData.year,
-          journal: paperData.journal || undefined,
-          conference: paperData.conference || undefined,
-          authors: paperData.authors || [], // Will be empty array if not stored
-          referencesCount: paperData.referencesCount || undefined,
-          citationCount: paperData.citationCount || undefined,
-          publisher: paperData.publisher || undefined,
-          type: paperData.type || undefined,
-          pdfUrl: paperData.pdfUrl || undefined,
-          htmlUrl: paperData.htmlUrl || undefined,
-          sources: ['Database'] // Add sources property
-        };
-      }
-
-      // Load aggregates data
-      console.log('PaperPage: About to load aggregates for paperId:', paperId);
-      const aggregatesData = await dataClient.getAggregatesForPaper(paperId);
-      console.log('PaperPage: Aggregates loaded:', aggregatesData);
-
       setPaper(paperData);
-      setRichMetadata(richMetadata);
-      setAggregates(aggregatesData);
-
+      loadAggregates(paperData.id);
+      loadRichMetadata(paperData);
     } catch (error) {
       console.error('PaperPage: Error loading paper data', error);
       setNotFound(true);
-      setIsLoading(false);
-      isLoadingRef.current = false;
     } finally {
-      // Ensure loading state is reset for the main success path
       setIsLoading(false);
-      isLoadingRef.current = false;
+    }
+  };
+
+  const loadAggregates = async (paperId: string) => {
+    try {
+      const aggregatesData = await dataClient.getAggregatesForPaper(paperId);
+      setAggregates(aggregatesData);
+    } catch (error) {
+      console.error('PaperPage: Error loading aggregates', error);
+    }
+  };
+
+  const loadRichMetadata = async (paperData: Paper) => {
+    // Fetch rich metadata from multiple APIs for display (only if not already stored)
+    const needsRichData = !paperData.abstract;
+
+    if (needsRichData) {
+      setIsLoadingRichData(true);
+      try {
+        // Use the existing lookupPaperByDOI which already handles API calls and caching
+        const freshPaperData = await dataClient.lookupPaperByDOI(paperData.doi);
+        if (freshPaperData && freshPaperData.abstract) {
+          const richMetadata = {
+            doi: freshPaperData.doi,
+            title: freshPaperData.title,
+            abstract: freshPaperData.abstract,
+            year: freshPaperData.year,
+            journal: freshPaperData.journal || undefined,
+            conference: freshPaperData.conference || undefined,
+            authors: freshPaperData.authors || [],
+            referencesCount: freshPaperData.referencesCount || undefined,
+            citationCount: freshPaperData.citationCount || undefined,
+            publisher: freshPaperData.publisher || undefined,
+            type: freshPaperData.type || undefined,
+            pdfUrl: freshPaperData.pdfUrl || undefined,
+            htmlUrl: freshPaperData.htmlUrl || undefined,
+            sources: ['Semantic Scholar', 'OpenAlex', 'CrossRef'] // Add sources property
+          };
+          setRichMetadata(richMetadata);
+          // Update the paper state with fresh data
+          setPaper(freshPaperData);
+        }
+      } catch (error) {
+        // Failed to fetch rich metadata, using stored data only
+      } finally {
+        setIsLoadingRichData(false);
+      }
+    } else {
+      // Use stored data for rich metadata display
+      const richMetadata = {
+        doi: paperData.doi,
+        title: paperData.title,
+        abstract: paperData.abstract,
+        year: paperData.year,
+        journal: paperData.journal || undefined,
+        conference: paperData.conference || undefined,
+        authors: paperData.authors || [], // Will be empty array if not stored
+        referencesCount: paperData.referencesCount || undefined,
+        citationCount: paperData.citationCount || undefined,
+        publisher: paperData.publisher || undefined,
+        type: paperData.type || undefined,
+        pdfUrl: paperData.pdfUrl || undefined,
+        htmlUrl: paperData.htmlUrl || undefined,
+        sources: ['Database'] // Add sources property
+      };
+      setRichMetadata(richMetadata);
     }
   };
 
   const handlePaperUpdate = async () => {
     if (paper) {
-      // Debounce the aggregates refresh to avoid excessive calls
-      if (isLoadingRef.current) return;
-      isLoadingRef.current = true;
-      
       try {
         const updatedAggregates = await dataClient.getAggregatesForPaper(paper.id);
         setAggregates(updatedAggregates);
-      } finally {
-        // Reset the loading flag after a short delay
-        setTimeout(() => {
-          isLoadingRef.current = false;
-        }, 1000);
+      } catch (error) {
+        console.error('Error updating aggregates:', error);
       }
     }
   };
@@ -335,7 +203,7 @@ export default function PaperPage() {
     }
   };
 
-  if (isLookupLoading) {
+  if (isLoading) {
     return (
       <div className="page-wrapper">
         <main className="page-container">
@@ -343,14 +211,11 @@ export default function PaperPage() {
             <div className="flex items-center space-x-4">
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
               <div className="space-y-2">
-                <h2 className="text-xl font-semibold">Loading Paper Information</h2>
+                <h2 className="text-xl font-semibold">Loading Paper</h2>
                 <p className="text-muted-foreground">
-                  Fetching paper details from academic databases...
+                  Preparing paper details...
                 </p>
               </div>
-            </div>
-            <div className="text-sm text-muted-foreground text-center max-w-md">
-              This may take a few seconds as we retrieve comprehensive metadata from multiple sources including CrossRef, OpenAlex, and Semantic Scholar.
             </div>
           </div>
         </main>
