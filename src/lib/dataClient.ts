@@ -607,6 +607,8 @@ export const dataClient = {
   },
 
   async getAggregatesForPaper(paperId: string): Promise<PaperAggregates & { histogram: Record<1|2|3|4|5, number> }> {
+    console.log('getAggregatesForPaper: Starting for paperId:', paperId);
+
     // Handle guest paper IDs for authenticated users
     if (paperId.startsWith('guest-') && !isGuestMode) {
       try {
@@ -636,6 +638,7 @@ export const dataClient = {
     }
 
     try {
+      console.log('getAggregatesForPaper: Executing first query for ratings');
       const { data, error } = await supabase
         .from('user_papers')
         .select('rating')
@@ -651,6 +654,8 @@ export const dataClient = {
         return { avgRating: 0, count: 0, latest: [], histogram: {1: 0, 2: 0, 3: 0, 4: 0, 5: 0} };
       }
 
+      console.log('getAggregatesForPaper: First query completed, data:', data);
+
       const ratings = (data ?? [])
         .map(r => r.rating)
         .filter((rating): rating is number => rating !== null);
@@ -665,6 +670,8 @@ export const dataClient = {
         }
       });
 
+      console.log('getAggregatesForPaper: Executing second query for latest reviews');
+
       // Get latest user papers for this paper - also handle RLS errors gracefully
       const { data: latestData, error: latestError } = await supabase
         .from('user_papers')
@@ -673,14 +680,20 @@ export const dataClient = {
         .order('updated_at', { ascending: false })
         .limit(3);
 
+      console.log('getAggregatesForPaper: Second query completed, latestData:', latestData, 'error:', latestError);
+
       const latest = latestError ? [] : (latestData || []) as unknown as UserPaper[];
 
-      return {
+      const result = {
         avgRating: Number(avg.toFixed(2)),
         count: ratings.length,
         latest,
         histogram
       };
+
+      console.log('getAggregatesForPaper: Returning result:', result);
+      return result;
+
     } catch (error) {
       console.error('Exception in getAggregatesForPaper:', error);
       // Return default stats on any error to prevent app crashes
