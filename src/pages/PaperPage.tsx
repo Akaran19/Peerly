@@ -50,10 +50,12 @@ export default function PaperPage() {
 
   const loadPaperData = async () => {
     if (isLoadingRef.current) {
+      console.log('PaperPage: loadPaperData skipped due to loading ref');
       return;
     }
 
     isLoadingRef.current = true;
+    console.log('PaperPage: loadPaperData started');
 
     try {
       let paperId = extractPaperId(paperIdAndSlug);
@@ -81,6 +83,9 @@ export default function PaperPage() {
               const newUrl = paperUrl(paperData);
               console.log('PaperPage: Redirecting to:', newUrl);
               navigate(newUrl, { replace: true });
+              // Reset loading state after redirect
+              setIsLoading(false);
+              isLoadingRef.current = false;
               return;
             } else {
               // For web results or guest mode, use the paper data directly
@@ -125,6 +130,9 @@ export default function PaperPage() {
             if (paperData.id && paperData.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
               const newUrl = paperUrl(paperData);
               navigate(newUrl, { replace: true });
+              // Reset loading state after redirect
+              setIsLoading(false);
+              isLoadingRef.current = false;
               return;
             } else {
               // For web results or guest mode, use the paper data directly
@@ -173,6 +181,9 @@ export default function PaperPage() {
         const currentPath = window.location.pathname;
         if (newUrl !== currentPath) {
           navigate(newUrl, { replace: true });
+          // Reset loading state after redirect
+          setIsLoading(false);
+          isLoadingRef.current = false;
         }
         return;
       }
