@@ -47,18 +47,27 @@ export function ReviewForm({ initialReview = '', onSave, onCancel, isLoading = f
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="space-y-2">
+        <label htmlFor="review-textarea" className="sr-only">
+          Write your review
+        </label>
         <Textarea
+          id="review-textarea"
           value={review}
           onChange={(e) => setReview(e.target.value)}
           placeholder="Share your thoughts on this paper..."
           className="min-h-[100px] resize-none"
           autoFocus
+          aria-describedby="char-counter"
         />
         <div className="flex justify-between items-center text-xs">
-          <span className={cn(
-            "transition-colors",
-            isOverLimit ? "text-destructive" : "text-muted-foreground"
-          )}>
+          <span 
+            id="char-counter"
+            className={cn(
+              "transition-colors",
+              isOverLimit ? "text-destructive" : "text-muted-foreground"
+            )}
+            aria-live="polite"
+          >
             {remainingChars} characters remaining
           </span>
         </div>

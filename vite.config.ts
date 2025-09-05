@@ -37,4 +37,21 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Extract React and React DOM into separate chunk
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          // Extract UI libraries
+          'ui-vendor': ['lucide-react', '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
+          // Extract Clerk authentication
+          'auth-vendor': ['@clerk/clerk-react'],
+          // Extract Supabase
+          'supabase-vendor': ['@supabase/supabase-js'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 600, // Increase warning limit slightly
+  },
 }));

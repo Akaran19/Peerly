@@ -1,6 +1,7 @@
-import { createContext, useState, ReactNode, useMemo, useCallback, useContext } from 'react';
+import { createContext, useState, ReactNode, useMemo, useCallback, useContext, useEffect } from 'react';
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { setGuestMode } from '@/lib/dataClient';
+import { setUser as setSentryUser, clearUser as clearSentryUser } from '@/lib/sentry';
 
 // Define a User-like interface that matches Clerk's user structure
 interface ClerkUser {
@@ -57,6 +58,20 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
 
   const loading = !isLoaded;
 
+  // Track user changes in Sentry
+  useEffect(() => {
+    if (user) {
+      setSentryUser({
+        id: user.id,
+        email: user.emailAddresses?.[0]?.emailAddress,
+        username: user.username,
+      });
+    } else if (!isGuest && isLoaded) {
+      // Clear user context when signed out (but not for guests)
+      clearSentryUser();
+    }
+  }, [user, isGuest, isLoaded]);
+
   const signInWithGoogle = useCallback(async () => {
     console.log('Google sign in handled by Clerk SignIn component');
     // Clerk handles OAuth automatically when using their SignIn component
@@ -86,6 +101,9 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem('peerly_guest_mode');
       setIsGuest(false);
       setGuestMode(false);
+
+      // Clear Sentry user context
+      clearSentryUser();
 
       console.log('Sign out successful');
     } catch (error) {
