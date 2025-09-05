@@ -10,6 +10,7 @@ import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { getUserPaper, upsertUserPaper } from '@/lib/supabaseHelpers';
 import { formatDOIUrl } from '@/lib/doi';
+import { trackPaperInteraction } from '@/lib/analytics';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -168,6 +169,14 @@ export function PaperActions({ paperId, paper, onUpdate }: PaperActionsProps) {
 
   const handleShelfChange = (shelf: Shelf) => {
     updateUserPaper({ shelf });
+    
+    // Track paper interaction with mapped action
+    const actionMap = {
+      'WANT': 'want_to_read' as const,
+      'READING': 'reading' as const,
+      'READ': 'read' as const
+    };
+    trackPaperInteraction(actionMap[shelf], paperId);
   };
 
   const handleRatingChange = (rating: number) => {

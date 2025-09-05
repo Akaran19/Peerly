@@ -78,6 +78,12 @@ export function AuthButton() {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
+          <Link to="/data">
+            <Settings className="mr-2 h-4 w-4" />
+            Data & Privacy
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
           <Link to="/settings">
             <Settings className="mr-2 h-4 w-4" />
             Settings

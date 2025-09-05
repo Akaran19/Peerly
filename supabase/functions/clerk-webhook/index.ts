@@ -118,31 +118,46 @@ async function handleUserCreated(userData: any) {
   // Extract name from various possible sources
   let name: string | null = null
 
-  // Try direct name fields
-  if (userData.first_name && userData.last_name) {
-    name = `${userData.first_name} ${userData.last_name}`
-  } else if (userData.first_name) {
-    name = userData.first_name
-  } else if (userData.last_name) {
-    name = userData.last_name
-  } else if (userData.username) {
-    name = userData.username
+  // First, try external accounts (GitHub, Google, etc.) - these have more authentic data
+  if (userData.external_accounts && Array.isArray(userData.external_accounts) && userData.external_accounts.length > 0) {
+    console.log(`Found ${userData.external_accounts.length} external accounts`)
+
+    // Log all external accounts for debugging
+    userData.external_accounts.forEach((account, index) => {
+      console.log(`External account ${index}: ${account.provider} - username: ${account.username}, name: ${account.given_name} ${account.family_name}`)
+    })
+
+    // Try to find the best account for name (prefer accounts with full names)
+    let bestAccount = userData.external_accounts[0] // Default to first
+
+    for (const account of userData.external_accounts) {
+      if (account.given_name && account.family_name) {
+        bestAccount = account // Prefer accounts with full names
+        break
+      }
+    }
+
+    if (bestAccount.given_name && bestAccount.family_name) {
+      name = `${bestAccount.given_name} ${bestAccount.family_name}`
+    } else if (bestAccount.given_name) {
+      name = bestAccount.given_name
+    } else if (bestAccount.family_name) {
+      name = bestAccount.family_name
+    } else if (bestAccount.username) {
+      name = bestAccount.username
+    }
   }
 
-  // Try external accounts (GitHub, Google, etc.)
-  if (!name && userData.external_accounts && Array.isArray(userData.external_accounts)) {
-    const account = userData.external_accounts[0]
-    if (account) {
-      console.log('External account:', JSON.stringify(account, null, 2))
-      if (account.given_name && account.family_name) {
-        name = `${account.given_name} ${account.family_name}`
-      } else if (account.given_name) {
-        name = account.given_name
-      } else if (account.family_name) {
-        name = account.family_name
-      } else if (account.username) {
-        name = account.username
-      }
+  // Fallback to direct name fields if no external account data
+  if (!name) {
+    if (userData.first_name && userData.last_name) {
+      name = `${userData.first_name} ${userData.last_name}`
+    } else if (userData.first_name) {
+      name = userData.first_name
+    } else if (userData.last_name) {
+      name = userData.last_name
+    } else if (userData.username) {
+      name = userData.username
     }
   }
 
@@ -160,11 +175,24 @@ async function handleUserCreated(userData: any) {
   }
 
   // Extract handle
-  let handle = userData.username
+  let handle: string | null = null
 
-  // Try external accounts for handle
-  if (!handle && userData.external_accounts && Array.isArray(userData.external_accounts)) {
-    handle = userData.external_accounts[0]?.username
+  // First, try external accounts for handle - prefer GitHub over Google
+  if (userData.external_accounts && Array.isArray(userData.external_accounts) && userData.external_accounts.length > 0) {
+    // Prefer GitHub for handles (better usernames than Google)
+    const githubAccount = userData.external_accounts.find(account => account.provider === 'oauth_github')
+    const googleAccount = userData.external_accounts.find(account => account.provider === 'oauth_google')
+
+    // Use GitHub username if available, otherwise Google, otherwise first account
+    const preferredAccount = githubAccount || googleAccount || userData.external_accounts[0]
+    handle = preferredAccount?.username || null
+
+    console.log(`Using ${preferredAccount?.provider} for handle: ${handle}`)
+  }
+
+  // Fallback to direct username
+  if (!handle) {
+    handle = userData.username || null
   }
 
   // Email fallback for handle
@@ -183,14 +211,30 @@ async function handleUserCreated(userData: any) {
   console.log('Final extracted name:', name)
   console.log('Final extracted handle:', handle)
 
+  // Extract image - prioritize external account avatar over Clerk's processed image
+  let imageUrl: string | null = null
+  if (userData.external_accounts && Array.isArray(userData.external_accounts) && userData.external_accounts.length > 0) {
+    // Prefer GitHub avatar, then Google, then any account
+    const githubAccount = userData.external_accounts.find(account => account.provider === 'oauth_github')
+    const googleAccount = userData.external_accounts.find(account => account.provider === 'oauth_google')
+    const preferredAccount = githubAccount || googleAccount || userData.external_accounts[0]
+
+    imageUrl = preferredAccount?.avatar_url || preferredAccount?.image_url || null
+    console.log(`Using ${preferredAccount?.provider} for image: ${imageUrl ? 'Found' : 'Not found'}`)
+  }
+  if (!imageUrl) {
+    imageUrl = userData.image_url || null
+  }
+
   const { error } = await supabase
     .from('profiles')
-    .insert({
-      id: userId,
+    .upsert({
       clerk_id: userId,
       name: name,
-      image: userData.image_url || userData.external_accounts?.[0]?.avatar_url,
+      image: imageUrl,
       handle: handle
+    }, {
+      onConflict: 'clerk_id'
     })
 
   if (error) {
@@ -199,29 +243,89 @@ async function handleUserCreated(userData: any) {
   }
 
   console.log('Profile created successfully for user:', userId)
+  
+  // Track sign-up event
+  trackSignUp(userData)
+}
+
+async function trackSignUp(userData: any) {
+  // Determine sign-up method from external accounts
+  let method: 'google' | 'github' | 'email' = 'email'
+  
+  if (userData.external_accounts && Array.isArray(userData.external_accounts) && userData.external_accounts.length > 0) {
+    const googleAccount = userData.external_accounts.find(account => account.provider === 'oauth_google')
+    const githubAccount = userData.external_accounts.find(account => account.provider === 'oauth_github')
+    
+    if (googleAccount) {
+      method = 'google'
+    } else if (githubAccount) {
+      method = 'github'
+    }
+  }
+  
+  console.log(`Tracking sign-up event: method=${method}, userId=${userData.id}`)
+  
+  // Note: In a production environment, you would send this to your analytics service
+  // For now, we'll just log it. You can integrate with Google Analytics, Mixpanel, etc.
 }
 
 async function handleUserUpdated(userData: ClerkWebhookEvent['data']) {
-  console.log('Updating user profile for:', userData.id)
+  console.log('=== HANDLING USER UPDATED ===')
+  console.log('User data keys:', Object.keys(userData))
   console.log('User data:', JSON.stringify(userData, null, 2))
 
-  // Extract name from various sources
-  let name = userData.first_name && userData.last_name
-    ? `${userData.first_name} ${userData.last_name}`
-    : userData.first_name || userData.last_name || userData.username
+  // Extract name from various possible sources
+  let name: string | null = null
 
-  // If no name from direct fields, try external accounts (GitHub, Google)
-  if (!name && userData.external_accounts && userData.external_accounts.length > 0) {
-    const primaryAccount = userData.external_accounts[0]
-    name = primaryAccount.given_name && primaryAccount.family_name
-      ? `${primaryAccount.given_name} ${primaryAccount.family_name}`
-      : primaryAccount.given_name || primaryAccount.family_name || primaryAccount.username
+  // First, try external accounts (GitHub, Google, etc.) - these have more authentic data
+  if (userData.external_accounts && Array.isArray(userData.external_accounts) && userData.external_accounts.length > 0) {
+    console.log(`Found ${userData.external_accounts.length} external accounts`)
+
+    // Log all external accounts for debugging
+    userData.external_accounts.forEach((account, index) => {
+      console.log(`External account ${index}: ${account.provider} - username: ${account.username}, name: ${account.given_name} ${account.family_name}`)
+    })
+
+    // Try to find the best account for name (prefer accounts with full names)
+    let bestAccount = userData.external_accounts[0] // Default to first
+
+    for (const account of userData.external_accounts) {
+      if (account.given_name && account.family_name) {
+        bestAccount = account // Prefer accounts with full names
+        break
+      }
+    }
+
+    if (bestAccount.given_name && bestAccount.family_name) {
+      name = `${bestAccount.given_name} ${bestAccount.family_name}`
+    } else if (bestAccount.given_name) {
+      name = bestAccount.given_name
+    } else if (bestAccount.family_name) {
+      name = bestAccount.family_name
+    } else if (bestAccount.username) {
+      name = bestAccount.username
+    }
   }
 
-  // Fallback to email username if still no name
-  if (!name && userData.email_addresses && userData.email_addresses.length > 0) {
-    const email = userData.email_addresses[0].email_address
-    name = email.split('@')[0]
+  // Fallback to direct name fields if no external account data
+  if (!name) {
+    if (userData.first_name && userData.last_name) {
+      name = `${userData.first_name} ${userData.last_name}`
+    } else if (userData.first_name) {
+      name = userData.first_name
+    } else if (userData.last_name) {
+      name = userData.last_name
+    } else if (userData.username) {
+      name = userData.username
+    }
+  }
+
+  // Try email as fallback
+  if (!name && userData.email_addresses && Array.isArray(userData.email_addresses)) {
+    const email = userData.email_addresses[0]?.email_address
+    if (email) {
+      name = email.split('@')[0]
+    }
   }
 
   // Final fallback
@@ -230,16 +334,32 @@ async function handleUserUpdated(userData: ClerkWebhookEvent['data']) {
   }
 
   // Extract handle
-  let handle = userData.username
+  let handle: string | null = null
 
-  // If no username, try external accounts
-  if (!handle && userData.external_accounts && userData.external_accounts.length > 0) {
-    handle = userData.external_accounts[0].username
+  // First, try external accounts for handle - prefer GitHub over Google
+  if (userData.external_accounts && Array.isArray(userData.external_accounts) && userData.external_accounts.length > 0) {
+    // Prefer GitHub for handles (better usernames than Google)
+    const githubAccount = userData.external_accounts.find(account => account.provider === 'oauth_github')
+    const googleAccount = userData.external_accounts.find(account => account.provider === 'oauth_google')
+
+    // Use GitHub username if available, otherwise Google, otherwise first account
+    const preferredAccount = githubAccount || googleAccount || userData.external_accounts[0]
+    handle = preferredAccount?.username || null
+
+    console.log(`Using ${preferredAccount?.provider} for handle: ${handle}`)
   }
 
-  // If still no handle, use email username
-  if (!handle && userData.email_addresses && userData.email_addresses.length > 0) {
-    handle = userData.email_addresses[0].email_address.split('@')[0]
+  // Fallback to direct username
+  if (!handle) {
+    handle = userData.username || null
+  }
+
+  // Email fallback for handle
+  if (!handle && userData.email_addresses && Array.isArray(userData.email_addresses)) {
+    const email = userData.email_addresses[0]?.email_address
+    if (email) {
+      handle = email.split('@')[0]
+    }
   }
 
   // Final fallback for handle
@@ -247,18 +367,49 @@ async function handleUserUpdated(userData: ClerkWebhookEvent['data']) {
     handle = `user_${userData.id.slice(0, 8)}`
   }
 
-  console.log('Extracted name:', name)
-  console.log('Extracted handle:', handle)
+  console.log('Final extracted name:', name)
+  console.log('Final extracted handle:', handle)
+
+  // Extract image - prioritize external account avatar over Clerk's processed image
+  let imageUrl: string | null = null
+  if (userData.external_accounts && Array.isArray(userData.external_accounts) && userData.external_accounts.length > 0) {
+    // Prefer GitHub avatar, then Google, then any account
+    const githubAccount = userData.external_accounts.find(account => account.provider === 'oauth_github')
+    const googleAccount = userData.external_accounts.find(account => account.provider === 'oauth_google')
+    const preferredAccount = githubAccount || googleAccount || userData.external_accounts[0]
+
+    imageUrl = preferredAccount?.avatar_url || null
+    console.log(`Using ${preferredAccount?.provider} for image: ${imageUrl ? 'Found' : 'Not found'}`)
+  }
+  if (!imageUrl) {
+    imageUrl = userData.image_url || null
+  }
+
+  // Check if handle already exists and belongs to another user
+  if (handle) {
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('clerk_id')
+      .eq('handle', handle)
+      .single()
+
+    if (existingProfile && existingProfile.clerk_id !== userData.id) {
+      // Handle is taken by another user, append user ID to make it unique
+      handle = `${handle}_${userData.id.slice(-4)}`
+      console.log('Handle was taken, using unique handle:', handle)
+    }
+  }
 
   const { error } = await supabase
     .from('profiles')
-    .update({
+    .upsert({
       clerk_id: userData.id,
       name: name,
-      image: userData.image_url,
+      image: imageUrl,
       handle: handle
+    }, {
+      onConflict: 'clerk_id'
     })
-    .eq('id', userData.id)
 
   if (error) {
     console.error('Error updating profile:', error)
@@ -275,7 +426,7 @@ async function handleUserDeleted(userData: ClerkWebhookEvent['data']) {
   const { error } = await supabase
     .from('profiles')
     .delete()
-    .eq('id', userData.id)
+    .eq('clerk_id', userData.id)
 
   if (error) {
     console.error('Error deleting profile:', error)

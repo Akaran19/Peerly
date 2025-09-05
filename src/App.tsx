@@ -16,7 +16,34 @@ import AuthCallbackPage from '@/pages/AuthCallbackPage';
 import ProfilePage from '@/pages/ProfilePage';
 import PrivacyPage from '@/pages/PrivacyPage';
 import TermsPage from '@/pages/TermsPage';
+import DataManagementPage from '@/pages/DataManagementPage';
 import NotFoundPage from '@/pages/NotFoundPage';
+import { CookieConsent } from '@/components/CookieConsent';
+import { useGoogleAnalytics } from '@/lib/analytics';
+
+function AppContent() {
+  // Initialize Google Analytics with consent
+  useGoogleAnalytics()
+
+  return (
+    <Routes>
+      <Route path="/" element={<HomePage />} />
+      <Route path="/paper/:paperIdAndSlug" element={<PaperPage />} />
+      <Route path="/author/:id" element={<AuthorPage />} />
+                    <Route path="/journal/:id" element={<JournalPage />} />
+      <Route path="/u/:handle" element={<UserPage />} />
+      <Route path="/signin" element={<SignInPage />} />
+      <Route path="/auth" element={<AuthCallbackPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/profile" element={<ProfilePage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/data" element={<DataManagementPage />} />
+      <Route path="*" element={<NotFoundPage />} />
+    </Routes>
+  )
+}
 
 function App() {
   return (
@@ -24,23 +51,10 @@ function App() {
       <AuthProvider>
         <Router>
           <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/paper/:paperIdAndSlug" element={<PaperPage />} />
-              <Route path="/author/:id" element={<AuthorPage />} />
-              <Route path="/journal/:id" element={<JournalPage />} />
-              <Route path="/u/:handle" element={<UserPage />} />
-              <Route path="/signin" element={<SignInPage />} />
-              <Route path="/auth" element={<AuthCallbackPage />} />
-              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/reset-password" element={<ResetPasswordPage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/privacy" element={<PrivacyPage />} />
-              <Route path="/terms" element={<TermsPage />} />
-              <Route path="*" element={<NotFoundPage />} />
-            </Routes>
+            <AppContent />
           </Suspense>
           <Toaster />
+          <CookieConsent />
         </Router>
         <Analytics />
       </AuthProvider>

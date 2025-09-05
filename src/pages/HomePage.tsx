@@ -7,8 +7,8 @@ import { PaperCardSkeleton } from '@/components/PaperCardSkeleton';
 import { AuthButton } from '@/components/AuthButton';
 import { getRecentPapers, getTrendingPapers, getPaperAggregates } from '@/lib/supabaseHelpers';
 import { mapDatabasePaperToPaper, dataClient } from '@/lib/dataClient';
-import { paperDoiUrl, paperPmidUrl } from '@/lib/routing';
-import { paperUrl } from '@/lib/routing';
+import { paperDoiUrl, paperPmidUrl, paperUrl } from '@/lib/routing';
+import { trackSearch } from '@/lib/analytics';
 import { GraduationCap, TrendingUp, Clock, Flame, AlertCircle, X, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '../components/ui/alert';
@@ -152,6 +152,9 @@ export default function HomePage() {
       setCurrentPage(1);
       setTotalPages(1);
       setTotalPapers(searchResults.length);
+      
+      // Track search event
+      trackSearch(query, searchResults.length);
     } catch (error) {
       console.error('Search failed:', error);
       setError({ type: 'search-error', message: 'Search failed. Please try again.' });

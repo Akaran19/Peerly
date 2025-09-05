@@ -5,6 +5,7 @@ import { Paper, PaperAggregates } from '@/types';
 import { dataClient } from '@/lib/dataClient';
 import { extractPaperId, shouldRedirectForSlug, paperUrl } from '@/lib/routing';
 import { formatDOIUrl, decodeDOIFromUrl } from '@/lib/doi';
+import { trackPaperView } from '@/lib/analytics';
 import { PaperActions } from '@/components/PaperActions';
 import { AggregateStats } from '@/components/AggregateStats';
 import ReviewsCard from '@/components/ReviewsCard';
@@ -43,6 +44,9 @@ export default function PaperPage() {
       loadAggregates(locationState.paper.id);
       loadRichMetadata(locationState.paper);
       setIsLoading(false);
+      
+      // Track paper view
+      trackPaperView(locationState.paper.id, locationState.paper.title);
       return;
     }
 
@@ -83,6 +87,9 @@ export default function PaperPage() {
       setPaper(paperData);
       loadAggregates(paperData.id);
       loadRichMetadata(paperData);
+      
+      // Track paper view
+      trackPaperView(paperData.id, paperData.title);
     } catch (error) {
       console.error('PaperPage: Error loading paper data', error);
       setNotFound(true);
