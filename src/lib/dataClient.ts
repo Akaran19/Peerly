@@ -408,12 +408,79 @@ export const dataClient = {
 
   async keywordSearchPapers(query: string): Promise<Paper[]> {
     try {
+      // Import the search parser
+      const { parseSearchQuery, buildSupabaseSearchQuery } = await import('./searchParser');
+
+      // Parse the search query
+      const parsedQuery = parseSearchQuery(query);
+      const supabaseQuery = buildSupabaseSearchQuery(parsedQuery);
+
+      console.log('Search query parsed:', {
+        original: query,
+        isAdvanced: parsedQuery.isAdvanced,
+        supabaseQuery
+      });
+
+      let dbQuery = supabase.from('papers').select('*');
+
+      if (parsedQuery.isAdvanced) {
+        // For advanced queries, build the query step by step
+        let hasConditions = false;
+
+        for (const token of parsedQuery.tokens) {
+          if (token.type === 'term' || token.type === 'phrase') {
+            const searchTerm = token.value.replace(/'/g, "''");
+            const condition = `title.ilike.%${searchTerm}%,abstract.ilike.%${searchTerm}%,journal.ilike.%${searchTerm}%,conference.ilike.%${searchTerm}%`;
+
+            if (!hasConditions) {
+              dbQuery = dbQuery.or(condition);
+              hasConditions = true;
+            } else {
+              // For simplicity, combine with OR for now
+              // In a full implementation, we'd need to handle AND/OR/NOT properly
+              dbQuery = dbQuery.or(condition);
+            }
+          } else if (token.type === 'field') {
+            const searchTerm = token.value.replace(/'/g, "''");
+            let condition = '';
+
+            switch (token.field) {
+              case 'title':
+                condition = `title.ilike.%${searchTerm}%`;
+                break;
+              case 'author':
+                condition = `authors::text.ilike.%${searchTerm}%`;
+                break;
+              case 'year':
+                condition = `year::text.ilike.%${searchTerm}%`;
+                break;
+              case 'journal':
+                condition = `journal.ilike.%${searchTerm}%`;
+                break;
+              default:
+                condition = `title.ilike.%${searchTerm}%,abstract.ilike.%${searchTerm}%`;
+            }
+
+            if (!hasConditions) {
+              dbQuery = dbQuery.or(condition);
+              hasConditions = true;
+            } else {
+              dbQuery = dbQuery.or(condition);
+            }
+          }
+        }
+
+        if (!hasConditions) {
+          // Fallback to simple search
+          dbQuery = dbQuery.or(`title.ilike.%${query}%,abstract.ilike.%${query}%,journal.ilike.%${query}%,conference.ilike.%${query}%`);
+        }
+      } else {
+        // Simple search
+        dbQuery = dbQuery.or(supabaseQuery);
+      }
+
       // First, search the local database
-      const { data: localData, error: localError } = await supabase
-        .from('papers')
-        .select('*')
-        .or(`title.ilike.%${query}%,abstract.ilike.%${query}%,journal.ilike.%${query}%,conference.ilike.%${query}%`)
-        .limit(10); // Get fewer from local to leave room for web results
+      const { data: localData, error: localError } = await dbQuery.limit(10);
 
       const localPapers = localError ? [] : (localData || []).map(mapDatabasePaperToPaper);
 

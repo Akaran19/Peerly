@@ -2,21 +2,77 @@
 // Primary: OpenAlex → CrossRef → Semantic Scholar → Europe PMC → OpenCitations
 // Based on: https://api.openalex.org/, https://api.crossref.org/, https://api.semanticscholar.org/
 
-import { Paper } from '@/types';
+import { Paper, Author } from '@/types';
 import { normalizeDOI } from './doi';
 
-// Enhanced author interface
-export interface Author {
+// Author interface for API responses (different from database Author)
+interface ApiAuthor {
+  name?: string;
   given?: string;
   family?: string;
-  name?: string;
+}
+
+// Filter for academic content types only
+function isAcademicContent(type?: string): boolean {
+  if (!type) return true; // If no type specified, include it
+
+  const academicTypes = [
+    'journal-article',
+    'proceedings-article',
+    'book-chapter',
+    'book',
+    'monograph',
+    'dissertation',
+    'report',
+    'preprint',
+    'working-paper',
+    'conference-paper',
+    'article',
+    'paper',
+    'chapter'
+  ];
+
+  const nonAcademicTypes = [
+    'figure',
+    'table',
+    'dataset',
+    'software',
+    'presentation',
+    'poster',
+    'video',
+    'audio',
+    'image',
+    'diagram',
+    'chart',
+    'graph',
+    'component',
+    'reference-entry',
+    'entry',
+    'other'
+  ];
+
+  const lowerType = type.toLowerCase();
+
+  // Exclude non-academic types
+  if (nonAcademicTypes.some(t => lowerType.includes(t))) {
+    return false;
+  }
+
+  // Include academic types
+  if (academicTypes.some(t => lowerType.includes(t))) {
+    return true;
+  }
+
+  // For unknown types, check if it contains academic keywords
+  const academicKeywords = ['article', 'paper', 'chapter', 'journal', 'conference', 'proceedings'];
+  return academicKeywords.some(keyword => lowerType.includes(keyword));
 }
 
 // Enhanced paper interface for multi-API results
 export interface MultiApiPaper {
   doi: string;
   title?: string;
-  authors?: Author[];
+  authors?: ApiAuthor[];
   abstract?: string;
   citationCount?: number;
   citingDois?: string[];
@@ -138,7 +194,7 @@ function uniq<T>(arr: T[]): T[] {
   return Array.from(new Set(arr));
 }
 
-function normalizeAuthors(auths: any[]): Author[] {
+function normalizeAuthors(auths: any[]): ApiAuthor[] {
   return auths
     .map(a => {
       if (a?.name) return { name: a.name };
@@ -527,7 +583,7 @@ export async function getPaperByPMID(pmid: string): Promise<MultiApiPaper | null
     
     // Extract authors
     const authorMatches = xmlText.match(/<Author[^>]*>.*?<LastName[^>]*>([^<]+)<\/LastName>.*?<ForeName[^>]*>([^<]+)<\/ForeName>.*?<\/Author>/g);
-    const authors: Author[] = [];
+    const authors: ApiAuthor[] = [];
     
     if (authorMatches) {
       for (const authorMatch of authorMatches) {
@@ -600,9 +656,22 @@ export async function searchPapersByKeywords(query: string, limit = 20): Promise
   const seenDois = new Set<string>();
 
   try {
+    // Import search parser for advanced queries
+    const { parseSearchQuery, buildCrossRefSearchQuery } = await import('./searchParser');
+
+    // Parse the search query
+    const parsedQuery = parseSearchQuery(query);
+    const crossRefQuery = buildCrossRefSearchQuery(parsedQuery);
+
+    console.log('CrossRef search query:', {
+      original: query,
+      parsed: crossRefQuery,
+      isAdvanced: parsedQuery.isAdvanced
+    });
+
     // Search CrossRef first (good for academic papers)
     const crossRefResponse = await fetch(
-      `https://api.crossref.org/works?query=${encodeURIComponent(query)}&rows=${limit}&sort=relevance`,
+      `https://api.crossref.org/works?query=${encodeURIComponent(crossRefQuery)}&rows=${limit}&sort=relevance`,
       { headers: { "User-Agent": UA } }
     );
 
@@ -643,7 +712,7 @@ export async function searchPapersByKeywords(query: string, limit = 20): Promise
     // If we don't have enough results, try OpenAlex
     if (results.length < limit) {
       const openAlexResponse = await fetch(
-        `https://api.openalex.org/works?search=${encodeURIComponent(query)}&per-page=${limit - results.length}&sort=relevance_score:desc`,
+        `https://api.openalex.org/works?search=${encodeURIComponent(crossRefQuery)}&per-page=${limit - results.length}&sort=relevance_score:desc`,
         { headers: { "User-Agent": UA } }
       );
 
@@ -690,7 +759,7 @@ export async function searchPapersByKeywords(query: string, limit = 20): Promise
     // If still not enough results, try Semantic Scholar
     if (results.length < limit) {
       const semanticScholarResponse = await fetch(
-        `/api/semanticscholar/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=${limit - results.length}&fields=title,abstract,authors,venue,year,citationCount,url,openAccessPdf,externalIds`,
+        `/api/semanticscholar/graph/v1/paper/search?query=${encodeURIComponent(crossRefQuery)}&limit=${limit - results.length}&fields=title,abstract,authors,venue,year,citationCount,url,openAccessPdf,externalIds`,
         { headers: S2_API_KEY && S2_API_KEY !== "your_semantic_scholar_api_key_here" ? { "x-api-key": S2_API_KEY } : {} }
       );
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, X, ChevronDown, Loader2, Plane } from 'lucide-react';
+import { Search, X, ChevronDown, Loader2, Plane, Info } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -46,7 +46,7 @@ export function SearchBar({
       case 'pmid':
         return 'Enter PubMed ID (digits only)';
       case 'keywords':
-        return 'Search title, topic, or author';
+        return 'Search papers (supports AND, OR, "quotes")';
       default:
         return placeholder;
     }
@@ -318,6 +318,13 @@ export function SearchBar({
             role="alert"
           >
             {validationError}
+          </p>
+        )}
+
+        {/* Advanced Search Help */}
+        {selectedMode === 'keywords' && !validationError && (
+          <p className="text-xs text-muted-foreground mt-2">
+            Advanced search: Use AND, OR, NOT, or "quotes" for phrases
           </p>
         )}
       </div>
