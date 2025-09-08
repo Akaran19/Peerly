@@ -41,7 +41,7 @@ export function useAuth() {
 
 export default function AuthProvider({ children }: { children: ReactNode }) {
   const { user: clerkUser, isLoaded } = useUser();
-  const { signOut: clerkSignOut } = useClerk();
+  const { signOut: clerkSignOut, openSignIn } = useClerk();
   const [isGuest, setIsGuest] = useState(false);
 
   console.log('AuthProvider: clerkUser:', !!clerkUser, 'isLoaded:', isLoaded);
@@ -73,24 +73,50 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, isGuest, isLoaded]);
 
   const signInWithGoogle = useCallback(async () => {
-    console.log('Google sign in handled by Clerk SignIn component');
-    // Clerk handles OAuth automatically when using their SignIn component
-  }, []);
+    console.log('Opening Clerk sign-in modal...');
+    try {
+      await openSignIn({
+        redirectUrl: window.location.href, // Stay on current page after sign-in
+      });
+    } catch (error) {
+      console.error('Failed to open sign-in modal:', error);
+    }
+  }, [openSignIn]);
 
   const signInWithGitHub = useCallback(async () => {
-    console.log('GitHub sign in handled by Clerk SignIn component');
-    // Clerk handles OAuth automatically when using their SignIn component
-  }, []);
+    console.log('Opening Clerk sign-in modal for GitHub...');
+    try {
+      await openSignIn({
+        redirectUrl: window.location.href,
+      });
+    } catch (error) {
+      console.error('Failed to open sign-in modal:', error);
+    }
+  }, [openSignIn]);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
-    console.log('Email sign in handled by Clerk SignIn component');
-    // Clerk handles email auth automatically when using their SignIn component
-  }, []);
+    console.log('Opening Clerk sign-in modal for email...');
+    try {
+      await openSignIn({
+        redirectUrl: window.location.href,
+      });
+    } catch (error) {
+      console.error('Failed to open sign-in modal:', error);
+    }
+  }, [openSignIn]);
 
   const signUpWithEmail = useCallback(async (email: string, password: string) => {
-    console.log('Email sign up handled by Clerk SignIn component');
-    // Clerk handles email auth automatically when using their SignIn component
-  }, []);
+    console.log('Opening Clerk sign-up modal...');
+    try {
+      // For sign up, we might need to use a different approach
+      // Clerk's openSignIn can handle both sign in and sign up
+      await openSignIn({
+        redirectUrl: window.location.href,
+      });
+    } catch (error) {
+      console.error('Failed to open sign-up modal:', error);
+    }
+  }, [openSignIn]);
 
   const signOut = useCallback(async () => {
     console.log('Starting sign out with Clerk...');
