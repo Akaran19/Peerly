@@ -105,7 +105,7 @@ Peerly is a modern platform for academic researchers, students, and knowledge wo
 - **GDPR compliant** with data export/deletion
 - **End-to-end encryption** for all data transmission
 - **Regular security audits** and updates
-
+<!--
 ## � Testimonials
 
 *"Peerly transformed how I stay current with research in my field. The DOI resolution is a game-changer!"*
@@ -113,7 +113,7 @@ Peerly is a modern platform for academic researchers, students, and knowledge wo
 
 *"Finally, a Goodreads for academic papers. The community reviews are incredibly helpful."*
 — Prof. Michael Rodriguez, Computer Science
-
+-->
 ## � Support & Community
 
 - **📧 Email**: contact@peerly.io
