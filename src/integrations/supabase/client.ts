@@ -22,3 +22,51 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     }
   }
 });
+
+// Create a Supabase client that integrates with Clerk
+// This will be configured to use Clerk's session tokens
+export const supabaseWithClerk = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    storage: localStorage,
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce'
+  },
+  global: {
+    headers: {
+      'apikey': SUPABASE_PUBLISHABLE_KEY
+    }
+  }
+});
+
+// Function to configure the Supabase client with Clerk token
+export async function configureSupabaseWithClerk() {
+  try {
+    // Get the Clerk instance from the window (set by ClerkProvider)
+    const clerk = (window as any).Clerk;
+
+    if (clerk && clerk.session) {
+      const token = await clerk.session.getToken();
+
+      if (token) {
+        // Set the authorization header for all requests
+        supabaseWithClerk.supabaseKey = SUPABASE_PUBLISHABLE_KEY;
+        supabaseWithClerk.rest.headers = {
+          ...supabaseWithClerk.rest.headers,
+          'Authorization': `Bearer ${token}`,
+          'apikey': SUPABASE_PUBLISHABLE_KEY
+        };
+
+        console.log('Configured Supabase client with Clerk token');
+        return supabaseWithClerk;
+      }
+    }
+
+    console.warn('Could not configure Supabase with Clerk token');
+    return supabase; // Fallback to regular client
+  } catch (error) {
+    console.error('Error configuring Supabase with Clerk:', error);
+    return supabase; // Fallback to regular client
+  }
+}

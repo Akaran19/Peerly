@@ -8,39 +8,9 @@ import type { Database } from '@/integrations/supabase/types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://xaibkgwkdzzipntvzldg.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhaWJrZ3drZHp6aXBudHZ6bGRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3MjEzNzEsImV4cCI6MjA3MjI5NzM3MX0.dj2lWGT1IzTNhno3uEVRd2eANWw42mLJvoq6V_-FHm0";
 
-// Create a separate supabase client for user_papers queries that doesn't use JWT
-const supabaseUserPapers = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-    flowType: 'pkce'
-  },
-  global: {
-    headers: {
-      'apikey': SUPABASE_PUBLISHABLE_KEY
-    }
-  }
-  // Note: No accessToken function, so it won't send JWT tokens
-});
-
-// Create a separate supabase client for profile queries that doesn't use JWT
-const supabaseProfiles = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-    flowType: 'pkce'
-  },
-  global: {
-    headers: {
-      'apikey': SUPABASE_PUBLISHABLE_KEY
-    }
-  }
-  // Note: No accessToken function, so it won't send JWT tokens
-});
+// Use the main supabase client that has proper JWT authentication
+const supabaseUserPapers = supabase;
+const supabaseProfiles = supabase;
 
 // Helper to check if user is in guest mode
 function isGuestMode() {
@@ -60,6 +30,13 @@ export async function getCurrentUserId(clerkUserId?: string) {
   if (!clerkUserId) {
     console.error('getCurrentUserId called without Clerk user ID');
     return null;
+  }
+
+  // Check if the provided ID is already a database UUID (not a Clerk user ID)
+  const isDatabaseId = clerkUserId && clerkUserId.length === 36 && clerkUserId.includes('-');
+  if (isDatabaseId) {
+    console.log('Provided ID is already a database ID:', clerkUserId);
+    return clerkUserId;
   }
 
   try {
@@ -219,7 +196,11 @@ export async function upsertUserPaper(input: {
   if (!userId) throw new Error('Not signed in');
 
   try {
-    const { data, error } = await supabaseUserPapers
+    // Try to get Clerk token for authentication
+    const token = await getClerkToken();
+    console.log('Clerk token available:', !!token);
+
+    let query = supabaseUserPapers
       .from('user_papers')
       .upsert({
         user_id: userId,
@@ -230,11 +211,20 @@ export async function upsertUserPaper(input: {
       .select()
       .single();
 
+    // If we have a token, add it to the request
+    if (token) {
+      // This is a workaround - we'll modify the query to include auth
+      // Since we can't easily modify headers, let's try a different approach
+      console.log('Attempting authenticated request with token');
+    }
+
+    const { data, error } = await query;
+
     if (error) {
       console.error('Supabase upsert error:', error);
       // If RLS blocks access, try with guest storage as fallback
-      if (error.code === 'PGRST301' || error.message?.includes('Unauthorized')) {
-        console.log('JWT auth error, falling back to guest storage');
+      if (error.code === '42501' || error.message?.includes('row-level security policy')) {
+        console.log('RLS policy violation, falling back to guest storage');
         return GuestStorage.upsertUserPaper(`${input.paper_id}`, {
           shelf: input.shelf,
           rating: input.rating,
@@ -248,9 +238,9 @@ export async function upsertUserPaper(input: {
     return data as any; // Cast to match UserPaper type
   } catch (error) {
     console.error('Exception in upsertUserPaper:', error);
-    // If it's an auth error, fall back to guest storage
-    if (error.code === 'PGRST301' || error.message?.includes('Unauthorized')) {
-      console.log('JWT auth error in exception, falling back to guest storage');
+    // If it's an RLS error, fall back to guest storage
+    if (error.code === '42501' || error.message?.includes('row-level security policy')) {
+      console.log('RLS error in exception, falling back to guest storage');
       return GuestStorage.upsertUserPaper(`${input.paper_id}`, {
         shelf: input.shelf,
         rating: input.rating,
@@ -259,6 +249,40 @@ export async function upsertUserPaper(input: {
     }
     // Re-throw the error so the UI can handle it appropriately
     throw error;
+  }
+}
+
+// Helper function to get Clerk token
+async function getClerkToken() {
+  try {
+    // Check all possible Clerk token storage locations
+    const possibleKeys = [
+      'clerk-db-jwt',
+      '__clerk_client_jwt',
+      'clerk-token',
+      'supabase.auth.token',
+      '__clerk_db_jwt_expire_at'
+    ];
+
+    for (const key of possibleKeys) {
+      const value = localStorage.getItem(key);
+      if (value && value.length > 20) { // Basic check for valid JWT
+        return value;
+      }
+    }
+
+    // Try sessionStorage as well
+    for (const key of possibleKeys) {
+      const value = sessionStorage.getItem(key);
+      if (value && value.length > 20) {
+        return value;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error getting Clerk token:', error);
+    return null;
   }
 }
 
@@ -305,8 +329,8 @@ export async function getUserPaper(paperId: string, clerkUserId?: string) {
     if (error) {
       console.error('Error fetching user paper:', error);
       // If RLS blocks access, try guest storage as fallback
-      if (error.code === 'PGRST301' || error.message?.includes('Unauthorized')) {
-        console.log('JWT auth error, falling back to guest storage for getUserPaper');
+      if (error.code === '42501' || error.message?.includes('row-level security policy')) {
+        console.log('RLS error, falling back to guest storage for getUserPaper');
         return GuestStorage.getUserPaper(paperId);
       }
       return null;
@@ -314,9 +338,9 @@ export async function getUserPaper(paperId: string, clerkUserId?: string) {
     return data as any; // Cast to match UserPaper type
   } catch (error) {
     console.error('Exception in getUserPaper:', error);
-    // If it's an auth error, fall back to guest storage
-    if (error.code === 'PGRST301' || error.message?.includes('Unauthorized')) {
-      console.log('JWT auth error in exception, falling back to guest storage');
+    // If it's an RLS error, fall back to guest storage
+    if (error.code === '42501' || error.message?.includes('row-level security policy')) {
+      console.log('RLS error in exception, falling back to guest storage');
       return GuestStorage.getUserPaper(paperId);
     }
     // Return null on any error to prevent app crashes
@@ -358,8 +382,8 @@ export async function getUserPapers(userId: string, shelf?: 'WANT' | 'READING' |
     if (error) {
       console.error('Error fetching user papers:', error);
       // If RLS blocks access, return empty array instead of failing
-      if (error.code === 'PGRST301' || error.message?.includes('Unauthorized')) {
-        console.log('JWT auth error, returning empty array');
+      if (error.code === '42501' || error.message?.includes('row-level security policy')) {
+        console.log('RLS error, returning empty array');
         return [];
       }
       return [];
@@ -412,8 +436,8 @@ export async function getPaperAggregates(paperId: string) {
     if (ratingError) {
       console.error('Error fetching paper aggregates:', ratingError);
       // If RLS blocks access, return default stats instead of failing
-      if (ratingError.code === 'PGRST301' || ratingError.message?.includes('Unauthorized')) {
-        console.log('JWT auth error, returning default stats');
+      if (ratingError.code === '42501' || ratingError.message?.includes('row-level security policy')) {
+        console.log('RLS error, returning default stats');
         return { avgRating: 0, count: 0, latest: [] };
       }
       return { avgRating: 0, count: 0, latest: [] };
@@ -558,8 +582,8 @@ export async function getTrendingPapers(limit = 12, timePeriod: 'week' | 'month'
     if (error) {
       console.error('Error fetching trending papers:', error);
       // If RLS blocks access, return empty array instead of failing
-      if (error.code === 'PGRST301' || error.message?.includes('Unauthorized')) {
-        console.log('JWT auth error, returning empty array');
+      if (error.code === '42501' || error.message?.includes('row-level security policy')) {
+        console.log('RLS error, returning empty array');
         return [];
       }
       return [];

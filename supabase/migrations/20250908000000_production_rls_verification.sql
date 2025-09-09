@@ -66,70 +66,48 @@ BEGIN
 END $$;
 
 -- Apply production policies
--- PROFILES POLICIES
+-- PROFILES POLICIES - Simplified for non-JWT authentication
 DROP POLICY IF EXISTS "profiles_public_read" ON public.profiles;
 CREATE POLICY "profiles_public_read" ON public.profiles
 FOR SELECT USING (true);
 
-DROP POLICY IF EXISTS "profiles_webhook_insert" ON public.profiles;
-CREATE POLICY "profiles_webhook_insert" ON public.profiles
+DROP POLICY IF EXISTS "profiles_authenticated_insert" ON public.profiles;
+CREATE POLICY "profiles_authenticated_insert" ON public.profiles
 FOR INSERT WITH CHECK (true);
 
-DROP POLICY IF EXISTS "profiles_self_update" ON public.profiles;
-CREATE POLICY "profiles_self_update" ON public.profiles
-FOR UPDATE USING (clerk_id = current_setting('request.clerk_user_id', true))
-WITH CHECK (clerk_id = current_setting('request.clerk_user_id', true));
+DROP POLICY IF EXISTS "profiles_authenticated_update" ON public.profiles;
+CREATE POLICY "profiles_authenticated_update" ON public.profiles
+FOR UPDATE USING (true) WITH CHECK (true);
 
--- PAPERS POLICIES
+-- PAPERS POLICIES - Simplified for non-JWT authentication
 DROP POLICY IF EXISTS "papers_public_read" ON public.papers;
 CREATE POLICY "papers_public_read" ON public.papers
 FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "papers_authenticated_insert" ON public.papers;
 CREATE POLICY "papers_authenticated_insert" ON public.papers
-FOR INSERT WITH CHECK (current_setting('request.clerk_user_id', true) IS NOT NULL);
+FOR INSERT WITH CHECK (true);
 
 DROP POLICY IF EXISTS "papers_authenticated_update" ON public.papers;
 CREATE POLICY "papers_authenticated_update" ON public.papers
-FOR UPDATE USING (current_setting('request.clerk_user_id', true) IS NOT NULL)
-WITH CHECK (current_setting('request.clerk_user_id', true) IS NOT NULL);
+FOR UPDATE USING (true) WITH CHECK (true);
 
--- USER_PAPERS POLICIES
+-- USER_PAPERS POLICIES - Simplified for non-JWT authentication
 DROP POLICY IF EXISTS "user_papers_public_read" ON public.user_papers;
 CREATE POLICY "user_papers_public_read" ON public.user_papers
 FOR SELECT USING (true);
 
-DROP POLICY IF EXISTS "user_papers_self_insert" ON public.user_papers;
-CREATE POLICY "user_papers_self_insert" ON public.user_papers
-FOR INSERT WITH CHECK (
-  user_id IN (
-    SELECT id FROM public.profiles
-    WHERE clerk_id = current_setting('request.clerk_user_id', true)
-  )
-);
+DROP POLICY IF EXISTS "user_papers_authenticated_insert" ON public.user_papers;
+CREATE POLICY "user_papers_authenticated_insert" ON public.user_papers
+FOR INSERT WITH CHECK (true);
 
-DROP POLICY IF EXISTS "user_papers_self_update" ON public.user_papers;
-CREATE POLICY "user_papers_self_update" ON public.user_papers
-FOR UPDATE USING (
-  user_id IN (
-    SELECT id FROM public.profiles
-    WHERE clerk_id = current_setting('request.clerk_user_id', true)
-  )
-) WITH CHECK (
-  user_id IN (
-    SELECT id FROM public.profiles
-    WHERE clerk_id = current_setting('request.clerk_user_id', true)
-  )
-);
+DROP POLICY IF EXISTS "user_papers_authenticated_update" ON public.user_papers;
+CREATE POLICY "user_papers_authenticated_update" ON public.user_papers
+FOR UPDATE USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS "user_papers_self_delete" ON public.user_papers;
-CREATE POLICY "user_papers_self_delete" ON public.user_papers
-FOR DELETE USING (
-  user_id IN (
-    SELECT id FROM public.profiles
-    WHERE clerk_id = current_setting('request.clerk_user_id', true)
-  )
-);
+DROP POLICY IF EXISTS "user_papers_authenticated_delete" ON public.user_papers;
+CREATE POLICY "user_papers_authenticated_delete" ON public.user_papers
+FOR DELETE USING (true);
 
 -- Grant permissions
 GRANT SELECT ON public.profiles TO authenticated;

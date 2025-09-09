@@ -355,6 +355,7 @@ export default function HomePage() {
                   aggregates={paperAggregates[paper.id]}
                   showActions
                   onPaperLoaded={handlePaperLoaded}
+                  tier={userTier}
                 />
               ))}
             </div>

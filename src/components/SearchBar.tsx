@@ -9,6 +9,7 @@ import { paperDoiUrl, paperPmidUrl, paperUrl } from '@/lib/routing';
 import { dataClient } from '@/lib/dataClient';
 import { UpgradeGuard, ProBadge } from '@/components/UpgradeGuard';
 import { type Tier } from '@/lib/tier';
+import { toast } from '@/hooks/use-toast';
 
 type SearchMode = 'doi' | 'pmid' | 'keywords';
 
@@ -318,7 +319,18 @@ export function SearchBar({
         {selectedMode === 'keywords' && query.trim() && (
           <div className="flex justify-center mt-4">
             <UpgradeGuard tier={tier} feature="saved searches">
-              <Button variant="outline" disabled className="gap-2">
+              <Button 
+                variant="outline" 
+                className="gap-2"
+                onClick={() => {
+                  // TODO: Implement save search functionality
+                  console.log('Save Search clicked:', query.trim());
+                  toast({
+                    title: "Feature Coming Soon",
+                    description: "Save Search will allow you to save your search queries for quick access later.",
+                  });
+                }}
+              >
                 <Bookmark className="w-4 h-4" />
                 Save Search
                 <ProBadge />

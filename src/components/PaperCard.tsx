@@ -9,6 +9,7 @@ import { PaperActions } from '@/components/PaperActions';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { dataClient } from '@/lib/dataClient';
+import { type Tier } from '@/lib/tier';
 
 interface PaperCardProps {
   paper: Paper;
@@ -16,9 +17,10 @@ interface PaperCardProps {
   aggregates?: PaperAggregates;
   showActions?: boolean;
   onPaperLoaded?: (paper: Paper) => void;
+  tier?: Tier;
 }
 
-export function PaperCard({ paper, showAbstract = false, aggregates, showActions = false, onPaperLoaded }: PaperCardProps) {
+export function PaperCard({ paper, showAbstract = false, aggregates, showActions = false, onPaperLoaded, tier = 'free' }: PaperCardProps) {
   const [showActionBar, setShowActionBar] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
@@ -250,7 +252,7 @@ export function PaperCard({ paper, showAbstract = false, aggregates, showActions
                   conference: paper.conference,
                   publisher: paper.publisher
                 }}
-                tier="free"
+                tier={tier}
               />
             </div>
           )}
@@ -280,7 +282,7 @@ export function PaperCard({ paper, showAbstract = false, aggregates, showActions
                         conference: paper.conference,
                         publisher: paper.publisher
                       }}
-                      tier="free"
+                      tier={tier}
                     />
                   </div>
                 )}

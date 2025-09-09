@@ -13,6 +13,8 @@ import { Calendar, Users, ExternalLink, BookOpen, TrendingUp, FileText, Globe, R
 import { Badge } from '@/components/ui/badge';
 import { getPaperByDOI, extractPaperMetadata, DisplayPaperMetadata } from '@/lib/crossref';
 import Header from '@/components/Header';
+import { getTier } from '@/lib/account';
+import { type Tier } from '@/lib/tier';
 
 export default function PaperPage() {
   const params = useParams();
@@ -28,6 +30,7 @@ export default function PaperPage() {
   const [notFound, setNotFound] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tier, setTier] = useState<Tier>('free');
 
   // Helper function to generate Google Scholar URL for author search
   const getGoogleScholarUrl = (authorName: string): string => {
@@ -53,6 +56,18 @@ export default function PaperPage() {
     // Fallback: load paper data from URL
     loadPaperData();
   }, [paperIdAndSlug]);
+
+  useEffect(() => {
+    const loadTier = async () => {
+      try {
+        const userTier = await getTier();
+        setTier(userTier);
+      } catch (error) {
+        console.error('Error loading tier:', error);
+      }
+    };
+    loadTier();
+  }, []);
 
   const loadPaperData = async () => {
     try {
@@ -491,7 +506,7 @@ export default function PaperPage() {
                 publisher: richMetadata?.publisher || paper.publisher
               }}
               onUpdate={handlePaperUpdate}
-              tier="free"
+              tier={tier}
             />
           </div>
         </div>

@@ -470,8 +470,15 @@ export function PaperActions({ paperId, paper, onUpdate, tier = 'free' }: PaperA
                 <Button
                   variant="ghost"
                   size="sm"
-                  disabled
                   className="w-full justify-start h-10 hover:bg-muted/50"
+                  onClick={() => {
+                    // TODO: Implement tags functionality
+                    console.log('Add Tags clicked for paper:', paperId);
+                    toast({
+                      title: "Feature Coming Soon",
+                      description: "Tags will allow you to organize papers with custom labels and categories.",
+                    });
+                  }}
                 >
                   <Tag className="w-4 h-4 mr-3" />
                   Add Tags

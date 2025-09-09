@@ -11,7 +11,12 @@ interface UpgradeGuardProps {
 
 export function UpgradeGuard({ tier, feature, children }: UpgradeGuardProps) {
   if (isPro(tier)) {
-    return <>{children}</>;
+    // If user has Pro access, render children normally (remove disabled state if present)
+    return (
+      <div className="inline-block">
+        {React.cloneElement(children as React.ReactElement, { disabled: false })}
+      </div>
+    );
   }
 
   return (

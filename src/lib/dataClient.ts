@@ -611,11 +611,21 @@ export const dataClient = {
       return GuestStorage.getUserPapers();
     }
 
-    // Get the database profile ID from Clerk user ID
-    const { getCurrentUserId } = await import('./supabaseHelpers');
-    const dbUserId = await getCurrentUserId(userId);
-    if (!dbUserId) {
-      return [];
+    // Check if userId is already a database UUID (not a Clerk user ID)
+    const isDatabaseId = userId && userId.length === 36 && userId.includes('-');
+    
+    let dbUserId: string;
+    if (isDatabaseId) {
+      // userId is already the database profile ID
+      dbUserId = userId;
+    } else {
+      // userId is a Clerk user ID, need to get database profile ID
+      const { getCurrentUserId } = await import('./supabaseHelpers');
+      const profileId = await getCurrentUserId(userId);
+      if (!profileId) {
+        return [];
+      }
+      dbUserId = profileId;
     }
 
     try {
@@ -690,11 +700,21 @@ export const dataClient = {
       });
     }
 
-    // Get the database profile ID from Clerk user ID
-    const { getCurrentUserId } = await import('./supabaseHelpers');
-    const dbUserId = await getCurrentUserId(input.userId);
-    if (!dbUserId) {
-      throw new Error('Unable to get user profile ID');
+    // Check if userId is already a database UUID (not a Clerk user ID)
+    const isDatabaseId = input.userId && input.userId.length === 36 && input.userId.includes('-');
+    
+    let dbUserId: string;
+    if (isDatabaseId) {
+      // userId is already the database profile ID
+      dbUserId = input.userId;
+    } else {
+      // userId is a Clerk user ID, need to get database profile ID
+      const { getCurrentUserId } = await import('./supabaseHelpers');
+      const profileId = await getCurrentUserId(input.userId);
+      if (!profileId) {
+        throw new Error('Unable to get user profile ID');
+      }
+      dbUserId = profileId;
     }
 
     try {
@@ -913,11 +933,21 @@ export const dataClient = {
       return GuestStorage.getUserPaper(paperId);
     }
 
-    // Get the database profile ID from Clerk user ID
-    const { getCurrentUserId } = await import('./supabaseHelpers');
-    const dbUserId = await getCurrentUserId(userId);
-    if (!dbUserId) {
-      return null;
+    // Check if userId is already a database UUID (not a Clerk user ID)
+    const isDatabaseId = userId && userId.length === 36 && userId.includes('-');
+    
+    let dbUserId: string;
+    if (isDatabaseId) {
+      // userId is already the database profile ID
+      dbUserId = userId;
+    } else {
+      // userId is a Clerk user ID, need to get database profile ID
+      const { getCurrentUserId } = await import('./supabaseHelpers');
+      const profileId = await getCurrentUserId(userId);
+      if (!profileId) {
+        return null;
+      }
+      dbUserId = profileId;
     }
 
     try {

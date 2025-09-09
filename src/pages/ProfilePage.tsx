@@ -592,7 +592,7 @@ export default function ProfilePage() {
           {/* Library */}
           <div className="space-y-6">
             <h2 className="text-2xl font-semibold">My Library</h2>
-            <UserLibraryTabs userId={user.id} userPapers={userPapers} tier={userTier} />
+            <UserLibraryTabs userId={authUser?.id || user.id} userPapers={userPapers} tier={userTier} />
           </div>
         </div>
       </main>
