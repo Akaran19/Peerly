@@ -45,48 +45,61 @@ END $$;
 -- Apply production RLS policies (from the enable_production_rls migration)
 -- This ensures we have the correct policies even if they were dropped
 
--- Drop any existing policies first
-DROP POLICY IF EXISTS "allow_all_profiles" ON public.profiles;
-DROP POLICY IF EXISTS "allow_all_papers" ON public.papers;
-DROP POLICY IF EXISTS "allow_all_user_papers" ON public.user_papers;
-DROP POLICY IF EXISTS "profiles_select_own" ON public.profiles;
-DROP POLICY IF EXISTS "profiles_insert_own" ON public.profiles;
-DROP POLICY IF EXISTS "profiles_update_own" ON public.profiles;
-DROP POLICY IF EXISTS "papers_select_all" ON public.papers;
-DROP POLICY IF EXISTS "papers_insert_authenticated" ON public.papers;
-DROP POLICY IF EXISTS "papers_update_authenticated" ON public.papers;
-DROP POLICY IF EXISTS "user_papers_select_own" ON public.user_papers;
-DROP POLICY IF EXISTS "user_papers_insert_own" ON public.user_papers;
-DROP POLICY IF EXISTS "user_papers_update_own" ON public.user_papers;
-DROP POLICY IF EXISTS "user_papers_delete_own" ON public.user_papers;
+-- Drop any existing policies first (safely)
+DO $$
+DECLARE
+    policy_record RECORD;
+BEGIN
+    -- Drop all existing policies safely
+    FOR policy_record IN
+        SELECT schemaname, tablename, policyname
+        FROM pg_policies
+        WHERE schemaname = 'public'
+        AND tablename IN ('profiles', 'papers', 'user_papers')
+    LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON %I.%I',
+                      policy_record.policyname,
+                      policy_record.schemaname,
+                      policy_record.tablename);
+        RAISE NOTICE 'Dropped policy: %.%', policy_record.tablename, policy_record.policyname;
+    END LOOP;
+END $$;
 
 -- Apply production policies
 -- PROFILES POLICIES
+DROP POLICY IF EXISTS "profiles_public_read" ON public.profiles;
 CREATE POLICY "profiles_public_read" ON public.profiles
 FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "profiles_webhook_insert" ON public.profiles;
 CREATE POLICY "profiles_webhook_insert" ON public.profiles
 FOR INSERT WITH CHECK (true);
 
+DROP POLICY IF EXISTS "profiles_self_update" ON public.profiles;
 CREATE POLICY "profiles_self_update" ON public.profiles
 FOR UPDATE USING (clerk_id = current_setting('request.clerk_user_id', true))
 WITH CHECK (clerk_id = current_setting('request.clerk_user_id', true));
 
 -- PAPERS POLICIES
+DROP POLICY IF EXISTS "papers_public_read" ON public.papers;
 CREATE POLICY "papers_public_read" ON public.papers
 FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "papers_authenticated_insert" ON public.papers;
 CREATE POLICY "papers_authenticated_insert" ON public.papers
 FOR INSERT WITH CHECK (current_setting('request.clerk_user_id', true) IS NOT NULL);
 
+DROP POLICY IF EXISTS "papers_authenticated_update" ON public.papers;
 CREATE POLICY "papers_authenticated_update" ON public.papers
 FOR UPDATE USING (current_setting('request.clerk_user_id', true) IS NOT NULL)
 WITH CHECK (current_setting('request.clerk_user_id', true) IS NOT NULL);
 
 -- USER_PAPERS POLICIES
+DROP POLICY IF EXISTS "user_papers_public_read" ON public.user_papers;
 CREATE POLICY "user_papers_public_read" ON public.user_papers
 FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "user_papers_self_insert" ON public.user_papers;
 CREATE POLICY "user_papers_self_insert" ON public.user_papers
 FOR INSERT WITH CHECK (
   user_id IN (
@@ -95,6 +108,7 @@ FOR INSERT WITH CHECK (
   )
 );
 
+DROP POLICY IF EXISTS "user_papers_self_update" ON public.user_papers;
 CREATE POLICY "user_papers_self_update" ON public.user_papers
 FOR UPDATE USING (
   user_id IN (
@@ -108,6 +122,7 @@ FOR UPDATE USING (
   )
 );
 
+DROP POLICY IF EXISTS "user_papers_self_delete" ON public.user_papers;
 CREATE POLICY "user_papers_self_delete" ON public.user_papers
 FOR DELETE USING (
   user_id IN (
