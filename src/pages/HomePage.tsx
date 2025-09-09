@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import Header from '@/components/Header';
+import { getTier, type Tier } from '@/lib/account';
 
 export default function HomePage() {
   const location = useLocation();
@@ -32,11 +33,23 @@ export default function HomePage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalPapers, setTotalPapers] = useState(0);
   const papersPerPage = 9;
+  const [userTier, setUserTier] = useState<Tier>('free');
 
   useEffect(() => {
     loadInitialData();
     checkForErrors();
+    loadUserTier();
   }, [viewMode, trendingPeriod, currentPage]);
+
+  const loadUserTier = async () => {
+    try {
+      const tier = await getTier();
+      setUserTier(tier);
+    } catch (error) {
+      console.error('Error loading user tier:', error);
+      // Keep default 'free' tier on error
+    }
+  };
 
   const checkForErrors = () => {
     const urlParams = new URLSearchParams(location.search);
@@ -242,7 +255,7 @@ export default function HomePage() {
           </div>
         </div>        {/* Search Section */}
         <div className="max-w-2xl mx-auto mb-6 md:mb-8 px-4 md:px-0">
-          <SearchBar onSearch={handleSearch} isSearching={isLoading} onPaperLoaded={handlePaperLoaded} tier="free" />
+          <SearchBar onSearch={handleSearch} isSearching={isLoading} onPaperLoaded={handlePaperLoaded} tier={userTier} />
           <p className="text-sm text-muted-foreground text-center mt-2">
             Choose DOI, PMID, or Keywords before searching.
           </p>

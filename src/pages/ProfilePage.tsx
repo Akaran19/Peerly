@@ -14,6 +14,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
 import { GuestStorage } from '@/lib/guestStorage';
+import { getTier, type Tier } from '@/lib/account';
 
 export default function ProfilePage() {
   const { user: authUser, loading: authLoading, isGuest } = useAuth();
@@ -37,6 +38,7 @@ export default function ProfilePage() {
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [userTier, setUserTier] = useState<Tier>('free');
 
   useEffect(() => {
     if (!authLoading) {
@@ -61,7 +63,18 @@ export default function ProfilePage() {
         setIsLoading(false);
       }
     }
+    loadUserTier();
   }, [authLoading, authUser, isGuest]);
+
+  const loadUserTier = async () => {
+    try {
+      const tier = await getTier();
+      setUserTier(tier);
+    } catch (error) {
+      console.error('Error loading user tier:', error);
+      // Keep default 'free' tier on error
+    }
+  };
 
     const loadUserProfile = async () => {
     if (!authUser) {
@@ -579,7 +592,7 @@ export default function ProfilePage() {
           {/* Library */}
           <div className="space-y-6">
             <h2 className="text-2xl font-semibold">My Library</h2>
-            <UserLibraryTabs userId={user.id} userPapers={userPapers} tier="free" />
+            <UserLibraryTabs userId={user.id} userPapers={userPapers} tier={userTier} />
           </div>
         </div>
       </main>

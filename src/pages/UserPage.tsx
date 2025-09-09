@@ -7,6 +7,7 @@ import { User as UserIcon, Calendar, BookOpen } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import Header from '@/components/Header';
+import { getTier, type Tier } from '@/lib/account';
 
 export default function UserPage() {
   const params = useParams();
@@ -16,10 +17,22 @@ export default function UserPage() {
   const [userPapers, setUserPapers] = useState<UserPaper[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [userTier, setUserTier] = useState<Tier>('free');
 
   useEffect(() => {
     loadUserData();
+    loadUserTier();
   }, [handle]);
+
+  const loadUserTier = async () => {
+    try {
+      const tier = await getTier();
+      setUserTier(tier);
+    } catch (error) {
+      console.error('Error loading user tier:', error);
+      // Keep default 'free' tier on error
+    }
+  };
 
   const loadUserData = async () => {
     try {
@@ -141,7 +154,7 @@ export default function UserPage() {
           {/* User Library */}
           <div className="space-y-6">
             <h2 className="text-2xl font-semibold">Paper Library</h2>
-            <UserLibraryTabs userId={user.id} tier="free" />
+            <UserLibraryTabs userId={user.id} tier={userTier} />
           </div>
         </div>
       </main>
