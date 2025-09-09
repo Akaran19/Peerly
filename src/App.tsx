@@ -22,6 +22,7 @@ const PrivacyPage = lazy(() => import('@/pages/PrivacyPage'));
 const TermsPage = lazy(() => import('@/pages/TermsPage'));
 const DataManagementPage = lazy(() => import('@/pages/DataManagementPage'));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
+const PricingPage = lazy(() => import('@/pages/PricingPage'));
 
 function AppContent() {
   // Initialize Google Analytics with consent
@@ -50,6 +51,7 @@ function AppContent() {
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/data" element={<DataManagementPage />} />
+        <Route path="/pricing" element={<PricingPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Suspense>

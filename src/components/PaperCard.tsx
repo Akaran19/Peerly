@@ -250,6 +250,7 @@ export function PaperCard({ paper, showAbstract = false, aggregates, showActions
                   conference: paper.conference,
                   publisher: paper.publisher
                 }}
+                tier="free"
               />
             </div>
           )}
@@ -279,6 +280,7 @@ export function PaperCard({ paper, showAbstract = false, aggregates, showActions
                         conference: paper.conference,
                         publisher: paper.publisher
                       }}
+                      tier="free"
                     />
                   </div>
                 )}

@@ -13,9 +13,10 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
+import { GuestStorage } from '@/lib/guestStorage';
 
 export default function ProfilePage() {
-  const { user: authUser, loading: authLoading } = useAuth();
+  const { user: authUser, loading: authLoading, isGuest } = useAuth();
   const [user, setUser] = useState<User | null>(null);
   const [userPapers, setUserPapers] = useState<UserPaper[]>([]);
   const [stats, setStats] = useState({
@@ -42,8 +43,11 @@ export default function ProfilePage() {
       if (authUser) {
         console.log('User is authenticated, loading profile...');
         loadUserProfile();
+      } else if (isGuest) {
+        console.log('User is in guest mode, setting up guest profile...');
+        loadGuestProfile();
       } else {
-        console.log('User is not authenticated');
+        console.log('User is not authenticated and not in guest mode');
         // Reset state when user signs out
         setUser(null);
         setUserPapers([]);
@@ -57,7 +61,7 @@ export default function ProfilePage() {
         setIsLoading(false);
       }
     }
-  }, [authLoading, authUser]);
+  }, [authLoading, authUser, isGuest]);
 
     const loadUserProfile = async () => {
     if (!authUser) {
@@ -106,8 +110,8 @@ export default function ProfilePage() {
       };
 
       // Calculate member since date
-      const memberSince = fullProfileData.created_at 
-        ? new Date(fullProfileData.created_at).getFullYear().toString()
+      const memberSince = (fullProfileData as any)?.created_at 
+        ? new Date((fullProfileData as any).created_at).getFullYear().toString()
         : '2023';
 
       // Transform papers data to match UserPaper type
@@ -149,6 +153,68 @@ export default function ProfilePage() {
       setEditForm({
         name: userData.name,
         image: userData.image || ''
+      });
+    } catch (error) {
+      setError('An unexpected error occurred. Please try refreshing the page.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadGuestProfile = async () => {
+    try {
+      setError(null);
+      
+      // Create a guest user profile
+      const guestUser: User = {
+        id: 'guest',
+        name: 'Guest User',
+        handle: 'guest',
+        image: null
+      };
+
+      // Load guest papers from localStorage
+      const guestPapers = GuestStorage.getUserPapers();
+      
+      // Transform papers data to match UserPaper type
+      const transformedPapers: UserPaper[] = guestPapers.map(p => ({
+        id: p.id,
+        user_id: p.user_id,
+        paper_id: p.paper_id,
+        shelf: p.shelf as Shelf,
+        rating: p.rating,
+        review: p.review,
+        created_at: p.created_at || '',
+        updated_at: p.updated_at || '',
+        upvotes: p.upvotes || 0
+      }));
+
+      // Calculate stats
+      const totalPapers = transformedPapers.length;
+      const ratingsData = transformedPapers.filter(p => p.rating !== null);
+      const averageRating = ratingsData.length > 0 
+        ? ratingsData.reduce((sum, p) => sum + (p.rating || 0), 0) / ratingsData.length
+        : 0;
+      const totalReviews = transformedPapers.filter(p => p.review && p.review.trim()).length;
+      const currentYear = new Date().getFullYear();
+      const readThisYear = transformedPapers.filter(p => 
+        p.shelf === 'READ' && new Date(p.updated_at).getFullYear() === currentYear
+      ).length;
+
+      setUser(guestUser);
+      setUserPapers(transformedPapers);
+      setMemberSince('2023');
+      setStats({
+        totalPapers,
+        averageRating: Math.round(averageRating * 10) / 10,
+        totalReviews,
+        readThisYear
+      });
+
+      // Update edit form with current user data
+      setEditForm({
+        name: guestUser.name,
+        image: guestUser.image || ''
       });
     } catch (error) {
       setError('An unexpected error occurred. Please try refreshing the page.');
@@ -318,7 +384,7 @@ export default function ProfilePage() {
     );
   }
 
-  if (!user) {
+  if (!user && !isGuest) {
     return (
       <div className="page-wrapper">
         <main className="page-container">
@@ -513,7 +579,7 @@ export default function ProfilePage() {
           {/* Library */}
           <div className="space-y-6">
             <h2 className="text-2xl font-semibold">My Library</h2>
-            <UserLibraryTabs userId={user.id} userPapers={userPapers} />
+            <UserLibraryTabs userId={user.id} userPapers={userPapers} tier="free" />
           </div>
         </div>
       </main>

@@ -23,6 +23,9 @@ export default function Header() {
             <a href="https://form.typeform.com/to/HBz7cKo8" target="_blank" rel="noopener noreferrer">Feedback</a>
           </Button>
           <Button variant="ghost" size="sm" asChild>
+            <Link to="/pricing">Pricing</Link>
+          </Button>
+          <Button variant="ghost" size="sm" asChild>
             <Link to="/privacy">Privacy</Link>
           </Button>
           <Button variant="ghost" size="sm" asChild>
@@ -53,6 +56,11 @@ export default function Header() {
               <a href="https://form.typeform.com/to/HBz7cKo8" target="_blank" rel="noopener noreferrer" onClick={() => setIsMobileMenuOpen(false)}>
                 Feedback
               </a>
+            </Button>
+            <Button variant="ghost" size="lg" asChild className="w-full justify-start h-12">
+              <Link to="/pricing" onClick={() => setIsMobileMenuOpen(false)}>
+                Pricing
+              </Link>
             </Button>
             <Button variant="ghost" size="lg" asChild className="w-full justify-start h-12">
               <Link to="/privacy" onClick={() => setIsMobileMenuOpen(false)}>

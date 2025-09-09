@@ -4,14 +4,17 @@ import { dataClient } from '@/lib/dataClient';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PaperCard } from './PaperCard';
 import { Button } from '@/components/ui/button';
-import { BookOpen, Eye, CheckCircle2, Plus, Sparkles } from 'lucide-react';
+import { BookOpen, Eye, CheckCircle2, Plus, Sparkles, Download, Edit } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { GuestStorage } from '@/lib/guestStorage';
 import { toast } from '@/hooks/use-toast';
+import { UpgradeGuard, ProBadge } from '@/components/UpgradeGuard';
+import { type Tier } from '@/lib/tier';
 
 interface UserLibraryTabsProps {
   userId: string;
   userPapers?: UserPaper[];
+  tier?: Tier;
 }
 
 const shelfConfig = {
@@ -20,7 +23,7 @@ const shelfConfig = {
   READ: { label: 'Read', icon: CheckCircle2, color: 'text-green-600', bgColor: 'bg-green-50', borderColor: 'border-green-200' }
 } as const;
 
-export function UserLibraryTabs({ userId, userPapers: passedUserPapers }: UserLibraryTabsProps) {
+export function UserLibraryTabs({ userId, userPapers: passedUserPapers, tier = 'free' }: UserLibraryTabsProps) {
   const { isGuest } = useAuth();
   const [userPapers, setUserPapers] = useState<Record<Shelf, UserPaper[]>>({
     WANT: [],
@@ -234,19 +237,40 @@ export function UserLibraryTabs({ userId, userPapers: passedUserPapers }: UserLi
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {userPapers[shelf].map((userPaper) => {
-                const paper = papers[userPaper.paper_id];
-                if (!paper) return null;
-                
-                return (
-                  <PaperCard
-                    key={userPaper.id}
-                    paper={paper}
-                    showAbstract
-                  />
-                );
-              })}
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <div></div>
+                <div className="flex gap-2">
+                  <UpgradeGuard tier={tier} feature="bulk edit">
+                    <Button variant="outline" disabled className="gap-2">
+                      <Edit className="w-4 h-4" />
+                      Bulk Edit
+                      <ProBadge />
+                    </Button>
+                  </UpgradeGuard>
+                  <UpgradeGuard tier={tier} feature="unlimited exports">
+                    <Button variant="outline" disabled className="gap-2">
+                      <Download className="w-4 h-4" />
+                      Export All
+                      <ProBadge />
+                    </Button>
+                  </UpgradeGuard>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {userPapers[shelf].map((userPaper) => {
+                  const paper = papers[userPaper.paper_id];
+                  if (!paper) return null;
+                  
+                  return (
+                    <PaperCard
+                      key={userPaper.id}
+                      paper={paper}
+                      showAbstract
+                    />
+                  );
+                })}
+              </div>
             </div>
           )}
         </TabsContent>

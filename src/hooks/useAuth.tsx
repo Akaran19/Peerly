@@ -42,7 +42,20 @@ export function useAuth() {
 export default function AuthProvider({ children }: { children: ReactNode }) {
   const { user: clerkUser, isLoaded } = useUser();
   const { signOut: clerkSignOut, openSignIn } = useClerk();
-  const [isGuest, setIsGuest] = useState(false);
+  const [isGuest, setIsGuest] = useState(() => {
+    // For local development, default to guest mode if not authenticated
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const savedGuestMode = localStorage.getItem('peerly_guest_mode') === 'true';
+    return isLocalhost && !clerkUser ? true : savedGuestMode;
+  });
+
+  // Set guest mode when component mounts
+  useEffect(() => {
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isLocalhost && !clerkUser && isLoaded) {
+      setGuestMode(true);
+    }
+  }, [clerkUser, isLoaded]);
 
   console.log('AuthProvider: clerkUser:', !!clerkUser, 'isLoaded:', isLoaded);
 
@@ -66,6 +79,10 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         email: user.emailAddresses?.[0]?.emailAddress,
         username: user.username,
       });
+      // Clear guest mode when user signs in
+      setIsGuest(false);
+      setGuestMode(false);
+      localStorage.removeItem('peerly_guest_mode');
     } else if (!isGuest && isLoaded) {
       // Clear user context when signed out (but not for guests)
       clearSentryUser();

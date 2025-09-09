@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, X, ChevronDown, Loader2, Plane, Info } from 'lucide-react';
+import { Search, X, ChevronDown, Loader2, Plane, Info, Bookmark } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { isValidDOI, normalizeDOI } from '@/lib/doi';
 import { paperDoiUrl, paperPmidUrl, paperUrl } from '@/lib/routing';
 import { dataClient } from '@/lib/dataClient';
+import { UpgradeGuard, ProBadge } from '@/components/UpgradeGuard';
+import { type Tier } from '@/lib/tier';
 
 type SearchMode = 'doi' | 'pmid' | 'keywords';
 
@@ -16,6 +18,7 @@ interface SearchBarProps {
   autoFocus?: boolean;
   isSearching?: boolean;
   onPaperLoaded?: (paper: any) => void;
+  tier?: Tier;
 }
 
 export function SearchBar({
@@ -23,7 +26,8 @@ export function SearchBar({
   placeholder = "Search papers...",
   autoFocus = false,
   isSearching = false,
-  onPaperLoaded
+  onPaperLoaded,
+  tier = 'free'
 }: SearchBarProps) {
   const [query, setQuery] = useState('');
   const [selectedMode, setSelectedMode] = useState<SearchMode | null>(null);
@@ -309,6 +313,19 @@ export function SearchBar({
             </Button>
           </div>
         </form>
+
+        {/* Save Search Button for Keywords */}
+        {selectedMode === 'keywords' && query.trim() && (
+          <div className="flex justify-center mt-4">
+            <UpgradeGuard tier={tier} feature="saved searches">
+              <Button variant="outline" disabled className="gap-2">
+                <Bookmark className="w-4 h-4" />
+                Save Search
+                <ProBadge />
+              </Button>
+            </UpgradeGuard>
+          </div>
+        )}
 
         {/* Validation Error */}
         {validationError && (

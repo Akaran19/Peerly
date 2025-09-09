@@ -141,7 +141,7 @@ export default function UserPage() {
           {/* User Library */}
           <div className="space-y-6">
             <h2 className="text-2xl font-semibold">Paper Library</h2>
-            <UserLibraryTabs userId={user.id} />
+            <UserLibraryTabs userId={user.id} tier="free" />
           </div>
         </div>
       </main>

@@ -491,6 +491,7 @@ export default function PaperPage() {
                 publisher: richMetadata?.publisher || paper.publisher
               }}
               onUpdate={handlePaperUpdate}
+              tier="free"
             />
           </div>
         </div>

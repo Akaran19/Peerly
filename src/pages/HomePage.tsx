@@ -242,7 +242,7 @@ export default function HomePage() {
           </div>
         </div>        {/* Search Section */}
         <div className="max-w-2xl mx-auto mb-6 md:mb-8 px-4 md:px-0">
-          <SearchBar onSearch={handleSearch} isSearching={isLoading} onPaperLoaded={handlePaperLoaded} />
+          <SearchBar onSearch={handleSearch} isSearching={isLoading} onPaperLoaded={handlePaperLoaded} tier="free" />
           <p className="text-sm text-muted-foreground text-center mt-2">
             Choose DOI, PMID, or Keywords before searching.
           </p>

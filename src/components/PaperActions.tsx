@@ -5,7 +5,7 @@ import { RatingStars } from './RatingStars';
 import { ReviewForm } from './ReviewForm';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { LogIn, Copy, ExternalLink, Quote, Save } from 'lucide-react';
+import { LogIn, Copy, ExternalLink, Quote, Save, Tag } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { getUserPaper, upsertUserPaper } from '@/lib/supabaseHelpers';
@@ -13,6 +13,8 @@ import { formatDOIUrl } from '@/lib/doi';
 import { trackPaperInteraction } from '@/lib/analytics';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { UpgradeGuard, ProBadge } from '@/components/UpgradeGuard';
+import { type Tier } from '@/lib/tier';
 
 interface PaperActionsProps {
   paperId: string;
@@ -26,9 +28,10 @@ interface PaperActionsProps {
     publisher?: string;
   };
   onUpdate?: (userPaper: UserPaper) => void;
+  tier?: Tier;
 }
 
-export function PaperActions({ paperId, paper, onUpdate }: PaperActionsProps) {
+export function PaperActions({ paperId, paper, onUpdate, tier = 'free' }: PaperActionsProps) {
   const { user, isGuest, signInWithGoogle } = useAuth();
   const [userPaper, setUserPaper] = useState<UserPaper | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -461,6 +464,20 @@ export function PaperActions({ paperId, paper, onUpdate }: PaperActionsProps) {
                 <Quote className="w-4 h-4 mr-3" />
                 {showCitations ? 'Hide Citations' : 'Show Citations'}
               </Button>
+
+              {/* Tags Button */}
+              <UpgradeGuard tier={tier} feature="tags and collections">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled
+                  className="w-full justify-start h-10 hover:bg-muted/50"
+                >
+                  <Tag className="w-4 h-4 mr-3" />
+                  Add Tags
+                  <ProBadge />
+                </Button>
+              </UpgradeGuard>
 
               {/* Citation Formats */}
               {showCitations && (
