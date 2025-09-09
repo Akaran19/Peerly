@@ -3,10 +3,13 @@ import { Check, Star, Users, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import Header from '@/components/Header';
 
 export default function PricingPage() {
   return (
     <div className="min-h-screen bg-background">
+      <Header />
+
       {/* Hero Section */}
       <section className="py-20 px-4 md:px-8 text-center">
         <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-4">
