@@ -10,6 +10,25 @@ export default function PricingPage() {
     <div className="min-h-screen bg-background">
       <Header />
 
+      {/* Development Banner */}
+      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-4 md:px-8">
+        <div className="max-w-4xl mx-auto text-center">
+          <div className="flex items-center justify-center gap-3 mb-2">
+            <div className="w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center">
+              <span className="text-black font-bold text-sm">!</span>
+            </div>
+            <h2 className="text-xl md:text-2xl font-bold">🎉 Free for Now!</h2>
+          </div>
+          <p className="text-lg md:text-xl">
+            All features are currently <strong>FREE</strong> while we work on our pricing model.
+            Enjoy unlimited access to everything!
+          </p>
+          <p className="text-sm md:text-base mt-2 opacity-90">
+            Pricing and subscriptions coming soon. No credit card required.
+          </p>
+        </div>
+      </div>
+
       {/* Hero Section */}
       <section className="py-20 px-4 md:px-8 text-center">
         <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-4">
@@ -72,8 +91,9 @@ export default function PricingPage() {
             <CardHeader>
               <CardTitle className="text-2xl">Pro</CardTitle>
               <CardDescription>Advanced features for power users</CardDescription>
-              <div className="text-3xl font-bold">€6.99<span className="text-lg font-normal">/mo</span></div>
-              <div className="text-sm text-muted-foreground">or €49/year (save 25%)</div>
+              <div className="text-3xl font-bold text-green-600">FREE</div>
+              <div className="text-sm text-muted-foreground line-through">€6.99/mo or €49/year</div>
+              <div className="text-sm text-green-600 font-medium">Currently free for all users</div>
             </CardHeader>
             <CardContent className="space-y-4">
               <ul className="space-y-2">
@@ -104,7 +124,7 @@ export default function PricingPage() {
             </CardContent>
             <CardFooter>
               <Button asChild className="w-full" variant="default">
-                <a href="#">Upgrade to Pro</a>
+                <Link to="/">🚀 Start Using Pro Features</Link>
               </Button>
             </CardFooter>
           </Card>
@@ -114,8 +134,9 @@ export default function PricingPage() {
             <CardHeader>
               <CardTitle className="text-2xl">Lab</CardTitle>
               <CardDescription>Collaboration tools for research teams</CardDescription>
-              <div className="text-3xl font-bold">€29<span className="text-lg font-normal">/mo</span></div>
-              <div className="text-sm text-muted-foreground">10 seats minimum</div>
+              <div className="text-3xl font-bold text-green-600">FREE</div>
+              <div className="text-sm text-muted-foreground line-through">€29/mo (10 seats minimum)</div>
+              <div className="text-sm text-green-600 font-medium">Currently free for all users</div>
             </CardHeader>
             <CardContent className="space-y-4">
               <ul className="space-y-2">
@@ -143,10 +164,7 @@ export default function PricingPage() {
             </CardContent>
             <CardFooter>
               <Button asChild className="w-full" variant="outline">
-                <a href="mailto:contact@peerly.io">
-                  <Mail className="w-4 h-4 mr-2" />
-                  Talk to us
-                </a>
+                <Link to="/">🚀 Start Using Lab Features</Link>
               </Button>
             </CardFooter>
           </Card>
@@ -157,21 +175,25 @@ export default function PricingPage() {
       <section className="py-16 px-4 md:px-8 max-w-4xl mx-auto">
         <h2 className="text-3xl font-bold text-center mb-12">Frequently Asked Questions</h2>
         <div className="space-y-6">
+          <div className="bg-green-50 dark:bg-green-950/20 p-6 rounded-lg border border-green-200 dark:border-green-800">
+            <h3 className="text-lg font-semibold mb-2 text-green-800 dark:text-green-200">🎉 Is everything really free right now?</h3>
+            <p className="text-green-700 dark:text-green-300">Yes! All features are completely free while we work on our pricing model. Enjoy unlimited access to Pro and Lab features without any restrictions.</p>
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold mb-2">When will pricing be introduced?</h3>
+            <p className="text-muted-foreground">We're currently developing our pricing model. We'll announce the timeline and provide plenty of notice before any changes take effect.</p>
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Will my data be affected when pricing launches?</h3>
+            <p className="text-muted-foreground">No, your data will remain safe and accessible. We'll provide clear migration paths and grandfathering options for early users.</p>
+          </div>
           <div>
             <h3 className="text-lg font-semibold mb-2">Can I change plans anytime?</h3>
             <p className="text-muted-foreground">Yes, you can upgrade or downgrade your plan at any time. Changes take effect immediately.</p>
           </div>
           <div>
-            <h3 className="text-lg font-semibold mb-2">Is there a free trial for Pro?</h3>
-            <p className="text-muted-foreground">We offer a 14-day free trial for the Pro plan. No credit card required to start.</p>
-          </div>
-          <div>
             <h3 className="text-lg font-semibold mb-2">What payment methods do you accept?</h3>
             <p className="text-muted-foreground">We accept all major credit cards and PayPal for monthly and yearly subscriptions.</p>
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold mb-2">Can students get a discount?</h3>
-            <p className="text-muted-foreground">Yes! Students get 40% off the Pro plan with a valid student email address.</p>
           </div>
         </div>
       </section>

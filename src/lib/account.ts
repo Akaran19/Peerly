@@ -6,6 +6,10 @@ export async function getTier(): Promise<Tier> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return 'free';
 
+  // TEMPORARY: Return 'pro' for all users while pricing is in development
+  // TODO: Remove this when pricing goes live
+  return 'pro';
+
   const { data, error } = await supabase
     .from('profiles')
     .select('tier')
