@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { X } from 'lucide-react'
+import { safeLocalStorage } from '@/lib/safeStorage';
 
 export function CookieConsent() {
   const [showConsent, setShowConsent] = useState(false)
@@ -12,7 +13,7 @@ export function CookieConsent() {
   })
 
   useEffect(() => {
-    const consent = localStorage.getItem('cookie-consent')
+    const consent = safeLocalStorage.getItem('cookie-consent')
     if (!consent) {
       setShowConsent(true)
     } else {
@@ -28,7 +29,7 @@ export function CookieConsent() {
       marketing: true
     }
     setPreferences(allPreferences)
-    localStorage.setItem('cookie-consent', JSON.stringify(allPreferences))
+    safeLocalStorage.setItem('cookie-consent', JSON.stringify(allPreferences))
     setShowConsent(false)
     // Trigger GA initialization
     window.dispatchEvent(new CustomEvent('cookie-consent-changed', { detail: allPreferences }))
@@ -41,14 +42,14 @@ export function CookieConsent() {
       marketing: false
     }
     setPreferences(necessaryOnly)
-    localStorage.setItem('cookie-consent', JSON.stringify(necessaryOnly))
+    safeLocalStorage.setItem('cookie-consent', JSON.stringify(necessaryOnly))
     setShowConsent(false)
     // Trigger GA initialization (though analytics will be false)
     window.dispatchEvent(new CustomEvent('cookie-consent-changed', { detail: necessaryOnly }))
   }
 
   const savePreferences = () => {
-    localStorage.setItem('cookie-consent', JSON.stringify(preferences))
+    safeLocalStorage.setItem('cookie-consent', JSON.stringify(preferences))
     setShowConsent(false)
     // Trigger GA initialization
     window.dispatchEvent(new CustomEvent('cookie-consent-changed', { detail: preferences }))

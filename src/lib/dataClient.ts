@@ -7,6 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/integrations/supabase/types';
 import { getPaperByDOI, multiApiToPaper, searchPapersByKeywords, getPaperByPMID } from '@/lib/crossref';
 import { GuestStorage } from './guestStorage';
+import { safeLocalStorage } from '@/lib/safeStorage';
 
 // Global flag to track guest mode (will be set by auth context)
 let isGuestMode = false;
@@ -69,7 +70,7 @@ const MIN_DATA_CLIENT_API_INTERVAL = 3000; // 3 seconds between any API calls in
 // Create a separate supabase client for paper queries that doesn't use JWT
 const supabasePapers = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: localStorage,
+    storage: safeLocalStorage,
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
@@ -86,7 +87,7 @@ const supabasePapers = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE
 // Create a separate supabase client for user_papers queries that doesn't use JWT
 const supabaseUserPapers = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: localStorage,
+    storage: safeLocalStorage,
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,

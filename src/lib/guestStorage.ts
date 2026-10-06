@@ -1,6 +1,7 @@
 // Guest storage system for Peerly - allows users to try the app without signing in
 
 import { UserPaper, Shelf } from '@/types';
+import { safeLocalStorage } from '@/lib/safeStorage';
 
 const GUEST_STORAGE_KEY = 'peerly_guest_data';
 const GUEST_USER_ID = 'guest-user';
@@ -13,7 +14,7 @@ interface GuestData {
 export class GuestStorage {
   private static getGuestData(): GuestData {
     try {
-      const stored = localStorage.getItem(GUEST_STORAGE_KEY);
+      const stored = safeLocalStorage.getItem(GUEST_STORAGE_KEY);
       if (stored) {
         return JSON.parse(stored);
       }
@@ -25,7 +26,7 @@ export class GuestStorage {
 
   private static saveGuestData(data: GuestData): void {
     try {
-      localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(data));
+      safeLocalStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(data));
     } catch (error) {
       console.error('Error saving guest data:', error);
     }
@@ -118,7 +119,7 @@ export class GuestStorage {
   }
 
   static clearAllData(): void {
-    localStorage.removeItem(GUEST_STORAGE_KEY);
+    safeLocalStorage.removeItem(GUEST_STORAGE_KEY);
   }
 
   static hasData(): boolean {

@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useUser } from '@clerk/clerk-react'
+import { safeLocalStorage } from '@/lib/safeStorage';
 
 // Google Analytics GA4 setup
 declare global {
@@ -14,7 +15,7 @@ export const useGoogleAnalytics = () => {
 
   const initializeGA = () => {
     // Check if user has consented to analytics cookies
-    const cookieConsent = localStorage.getItem('cookie-consent')
+    const cookieConsent = safeLocalStorage.getItem('cookie-consent')
     const hasAnalyticsConsent = cookieConsent
       ? JSON.parse(cookieConsent).analytics
       : false

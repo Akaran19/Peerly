@@ -3,6 +3,7 @@ import { GuestStorage } from './guestStorage';
 import { decodeDOIFromUrl } from './doi';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/integrations/supabase/types';
+import { safeLocalStorage, safeSessionStorage } from '@/lib/safeStorage';
 
 // Supabase configuration
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://xaibkgwkdzzipntvzldg.supabase.co";
@@ -14,7 +15,7 @@ const supabaseProfiles = supabase;
 
 // Helper to check if user is in guest mode
 function isGuestMode() {
-  return localStorage.getItem('peerly_guest_mode') === 'true';
+  return safeLocalStorage.getItem('peerly_guest_mode') === 'true';
 }
 
 export async function getCurrentUserId(clerkUserId?: string) {
@@ -265,7 +266,7 @@ async function getClerkToken() {
     ];
 
     for (const key of possibleKeys) {
-      const value = localStorage.getItem(key);
+      const value = safeLocalStorage.getItem(key);
       if (value && value.length > 20) { // Basic check for valid JWT
         return value;
       }
@@ -273,7 +274,7 @@ async function getClerkToken() {
 
     // Try sessionStorage as well
     for (const key of possibleKeys) {
-      const value = sessionStorage.getItem(key);
+      const value = safeSessionStorage.getItem(key);
       if (value && value.length > 20) {
         return value;
       }

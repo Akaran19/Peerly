@@ -2,6 +2,7 @@ import { createContext, useState, ReactNode, useMemo, useCallback, useContext, u
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { setGuestMode } from '@/lib/dataClient';
 import { setUser as setSentryUser, clearUser as clearSentryUser } from '@/lib/sentry';
+import { safeLocalStorage } from '@/lib/safeStorage';
 
 // Define a User-like interface that matches Clerk's user structure
 interface ClerkUser {
@@ -45,7 +46,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   const [isGuest, setIsGuest] = useState(() => {
     // For local development, default to guest mode if not authenticated
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const savedGuestMode = localStorage.getItem('peerly_guest_mode') === 'true';
+    const savedGuestMode = safeLocalStorage.getItem('peerly_guest_mode') === 'true';
     return isLocalhost && !clerkUser ? true : savedGuestMode;
   });
 
@@ -82,7 +83,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
       // Clear guest mode when user signs in
       setIsGuest(false);
       setGuestMode(false);
-      localStorage.removeItem('peerly_guest_mode');
+      safeLocalStorage.removeItem('peerly_guest_mode');
     } else if (!isGuest && isLoaded) {
       // Clear user context when signed out (but not for guests)
       clearSentryUser();
@@ -141,7 +142,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
       await clerkSignOut();
 
       // Clear guest mode when signing out
-      localStorage.removeItem('peerly_guest_mode');
+      safeLocalStorage.removeItem('peerly_guest_mode');
       setIsGuest(false);
       setGuestMode(false);
 
@@ -158,14 +159,14 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   const continueAsGuest = useCallback(() => {
     setIsGuest(true);
     setGuestMode(true);
-    localStorage.setItem('peerly_guest_mode', 'true');
+    safeLocalStorage.setItem('peerly_guest_mode', 'true');
   }, []);
 
   const convertGuestToUser = useCallback(async (authenticatedUser: ClerkUser) => {
     // This will be called when a guest user signs in
     setIsGuest(false);
     setGuestMode(false);
-    localStorage.removeItem('peerly_guest_mode');
+    safeLocalStorage.removeItem('peerly_guest_mode');
   }, []);
 
   const contextValue = useMemo(() => ({

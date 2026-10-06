@@ -4,6 +4,9 @@ import { ClerkProvider } from '@clerk/clerk-react'
 import App from './App.tsx'
 import './index.css'
 import { initSentry } from './lib/sentry'
+import { patchDomForExternalMutations } from './lib/domPatch'
+
+patchDomForExternalMutations()
 
 // Initialize Sentry for error monitoring
 initSentry()
