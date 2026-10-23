@@ -417,7 +417,7 @@ export default function PaperPage() {
               )}
             </header>
 
-            <div className="paper-reveal space-y-4 pb-10 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:pb-5" style={reveal(2)}>
+            <div id="review-form" className="paper-reveal scroll-mt-6 space-y-4 pb-10 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:pb-5" style={reveal(2)}>
               <section className="paper-panel space-y-3 [&_button]:min-h-0 [&_button]:min-w-0" aria-labelledby="readers-heading">
                 <h2 id="readers-heading" className="paper-section-label">On Peerly</h2>
                 {aggregates ? (

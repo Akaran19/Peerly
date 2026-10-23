@@ -1,84 +1,99 @@
-import { Link } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import { GraduationCap, Menu, X } from 'lucide-react';
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { AuthButton } from '@/components/layout/AuthButton';
+
+const FEEDBACK_URL = 'https://form.typeform.com/to/HBz7cKo8';
+
+const NAV = [
+  { to: '/pricing', label: 'Pricing' },
+  { to: '/privacy', label: 'Privacy' },
+  { to: '/terms', label: 'Terms' },
+];
+
+const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+  `font-ident text-[11px] uppercase tracking-[0.16em] transition-colors hover:text-foreground ${
+    isActive ? 'text-foreground underline decoration-primary decoration-2 underline-offset-[6px]' : 'text-muted-foreground'
+  }`;
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const close = () => setIsMobileMenuOpen(false);
 
   return (
     <>
-      <header className="flex items-center justify-between py-4 px-4 md:px-8 border-b bg-background">
-        <div className="flex items-center gap-3">
-          <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <GraduationCap className="w-7 h-7 md:w-8 md:h-8 text-primary" />
-            <span className="text-xl md:text-2xl font-bold text-foreground">Peerly</span>
+      <header className="relative border-b border-foreground/80 bg-background">
+        {/* Second hairline under the masthead rule */}
+        <div className="absolute inset-x-0 -bottom-[4px] h-px bg-foreground/15" aria-hidden />
+
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-4 py-4 md:px-6">
+          <Link to="/" className="group flex items-center gap-2.5" aria-label="Peerly home">
+            <GraduationCap className="h-7 w-7 text-brand transition-transform group-hover:-rotate-6 md:h-8 md:w-8" />
+            <span className="font-editorial text-[1.65rem] font-semibold leading-none tracking-[-0.02em] md:text-[1.9rem]">
+              Peerly
+            </span>
           </Link>
-        </div>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <a href="https://form.typeform.com/to/HBz7cKo8" target="_blank" rel="noopener noreferrer">Feedback</a>
-          </Button>
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/pricing">Pricing</Link>
-          </Button>
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/privacy">Privacy</Link>
-          </Button>
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/terms">Terms</Link>
-          </Button>
-          <AuthButton />
-        </nav>
+          <p className="hidden flex-1 font-editorial text-sm italic text-muted-foreground lg:block">
+            A reading log for research papers
+          </p>
 
-        {/* Mobile Navigation */}
-        <div className="flex md:hidden items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-2 h-10 w-10"
+          <nav className="hidden items-center gap-7 md:flex">
+            {NAV.map(item => (
+              <NavLink key={item.to} to={item.to} className={navLinkClass}>
+                {item.label}
+              </NavLink>
+            ))}
+            <a
+              href={FEEDBACK_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-ident text-[11px] uppercase tracking-[0.16em] text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Feedback ↗
+            </a>
+            <AuthButton />
+          </nav>
+
+          <button
+            onClick={() => setIsMobileMenuOpen(open => !open)}
+            className="flex h-10 w-10 items-center justify-center rounded-md border border-foreground/20 md:hidden"
+            aria-expanded={isMobileMenuOpen}
+            aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
           >
-            {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            <span className="sr-only">Menu</span>
-          </Button>
+            {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
       </header>
 
-      {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="md:hidden border-b bg-background shadow-lg">
-          <nav className="px-4 py-6 space-y-3">
-            <Button variant="ghost" size="lg" asChild className="w-full justify-start h-12">
-              <a href="https://form.typeform.com/to/HBz7cKo8" target="_blank" rel="noopener noreferrer" onClick={() => setIsMobileMenuOpen(false)}>
-                Feedback
-              </a>
-            </Button>
-            <Button variant="ghost" size="lg" asChild className="w-full justify-start h-12">
-              <Link to="/pricing" onClick={() => setIsMobileMenuOpen(false)}>
-                Pricing
-              </Link>
-            </Button>
-            <Button variant="ghost" size="lg" asChild className="w-full justify-start h-12">
-              <Link to="/privacy" onClick={() => setIsMobileMenuOpen(false)}>
-                Privacy
-              </Link>
-            </Button>
-            <Button variant="ghost" size="lg" asChild className="w-full justify-start h-12">
-              <Link to="/terms" onClick={() => setIsMobileMenuOpen(false)}>
-                Terms
-              </Link>
-            </Button>
-            <div className="pt-3 border-t">
+        <div className="border-b bg-card md:hidden">
+          <nav className="mx-auto flex max-w-6xl flex-col px-4 py-2">
+            {NAV.map(item => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={close}
+                className="border-b py-4 font-editorial text-xl last:border-b-0"
+              >
+                {item.label}
+              </NavLink>
+            ))}
+            <a
+              href={FEEDBACK_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={close}
+              className="border-b py-4 font-editorial text-xl"
+            >
+              Feedback ↗
+            </a>
+            <div className="py-4">
               <AuthButton />
             </div>
           </nav>
         </div>
       )}
-
     </>
   );
 }

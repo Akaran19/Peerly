@@ -9,9 +9,9 @@ import { getRecentPapers, getTrendingPapers, getPaperAggregates } from '@/lib/su
 import { mapDatabasePaperToPaper, dataClient } from '@/lib/dataClient';
 import { paperDoiUrl, paperPmidUrl, paperUrl } from '@/lib/routing';
 import { trackSearch } from '@/lib/analytics';
-import { GraduationCap, TrendingUp, Clock, Flame, AlertCircle, X, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AlertCircle, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '../components/ui/alert';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import Header from '@/components/layout/Header';
 import { getTier, type Tier } from '@/lib/account';
@@ -195,23 +195,25 @@ export default function HomePage() {
     setCurrentPage(1); // Reset to first page when changing period
   };
 
+  const firstIndex = (currentPage - 1) * papersPerPage + 1;
+  const periodLabel = trendingPeriod === 'all' ? 'all time' : trendingPeriod === 'month' ? 'this month' : 'this week';
+
+  const tabClass = (active: boolean) =>
+    `min-h-0 min-w-0 -mb-px border-b-2 pb-2 font-ident text-[11px] uppercase tracking-[0.16em] transition-colors ${
+      active ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+    }`;
+
   return (
     <div className="page-wrapper">
       <Header />
 
-      {/* Error Alert */}
       {error && (
-        <div className="px-4 md:px-8 py-4">
-          <Alert variant="destructive" className="max-w-4xl mx-auto">
+        <div className="mx-auto max-w-6xl px-4 pt-6 md:px-6">
+          <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription className="flex items-center justify-between">
               <span>{error.message}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={dismissError}
-                className="h-auto p-1 ml-2"
-              >
+              <Button variant="ghost" size="sm" onClick={dismissError} className="ml-2 h-auto p-1" aria-label="Dismiss">
                 <X className="h-4 w-4" />
               </Button>
             </AlertDescription>
@@ -220,137 +222,106 @@ export default function HomePage() {
       )}
 
       <main className="page-container">
-        {/* Hero Section */}
-        <div className="text-center space-y-6 mb-8 md:mb-12">
-          {/* Mobile: Logo above text */}
-          <div className="flex justify-center md:hidden">
-            <div className="p-3 bg-primary/10 rounded-2xl mb-4">
-              <GraduationCap className="w-10 h-10 text-primary" />
-            </div>
-          </div>
-
-          {/* Desktop: Logo inline with text */}
-          <div className="hidden md:flex justify-center">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 bg-primary/10 rounded-2xl">
-                <GraduationCap className="w-8 h-8 text-primary" />
-              </div>
-              <h1 className="text-4xl md:text-5xl font-bold text-foreground">
-                Find what's worth reading—fast.
-              </h1>
-            </div>
-          </div>
-
-          {/* Mobile: Text below logo */}
-          <div className="md:hidden px-4">
-            <h1 className="text-2xl font-bold text-foreground mb-4 leading-tight">
-              Find what's worth reading—fast.
+        {/* Masthead */}
+        <section className="grid gap-10 border-b border-foreground/80 pb-10 pt-2 lg:grid-cols-[minmax(0,1fr)_16rem] lg:items-end">
+          <div className="space-y-6">
+            <p className="label-mono paper-reveal">Reading log &amp; peer reviews for research papers</p>
+            <h1
+              className="paper-reveal max-w-[14ch] font-editorial text-[2.9rem] font-normal leading-[0.95] tracking-[-0.035em] sm:text-6xl lg:text-[5.4rem]"
+              style={{ '--reveal-delay': '80ms' } as React.CSSProperties}
+            >
+              Find what&rsquo;s worth <em className="font-normal italic text-primary">reading</em>.
             </h1>
-          </div>
-
-          <div className="max-w-2xl mx-auto space-y-4 px-4 md:px-0">
-            <p className="text-lg md:text-xl text-muted-foreground leading-relaxed">
-              See peer ratings, add your reviews, and keep your research on track.
+            <p
+              className="paper-reveal max-w-xl text-lg leading-relaxed text-muted-foreground"
+              style={{ '--reveal-delay': '160ms' } as React.CSSProperties}
+            >
+              Look up any paper, see what your peers thought of it, and keep a shelf of what you&rsquo;ve read and what&rsquo;s next.
             </p>
           </div>
-        </div>        {/* Search Section */}
-        <div className="max-w-2xl mx-auto mb-6 md:mb-8 px-4 md:px-0">
-          <SearchBar onSearch={handleSearch} isSearching={isLoading} onPaperLoaded={handlePaperLoaded} tier={userTier} />
-          <p className="text-sm text-muted-foreground text-center mt-2">
-            Choose DOI, PMID, or Keywords before searching.
-          </p>
-        </div>
 
-        {/* Papers Section */}
-        <div className="space-y-6 md:space-y-8 px-4 md:px-0" data-papers-section>
-          <div className="text-center space-y-4">
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4 mb-4 md:mb-6">
-              <h2 className="text-xl md:text-2xl font-semibold">
-                {viewMode === 'recent' ? 'Recent Papers' : `Trending ${trendingPeriod === 'all' ? 'All Time' : trendingPeriod === 'month' ? 'This Month' : 'This Week'}`}
-              </h2>
-
-              <div className="flex items-center gap-2 bg-muted p-1 rounded-lg w-full sm:w-auto">
-                <Button
-                  variant={viewMode === 'recent' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => handleViewModeChange('recent')}
-                  className="flex-1 sm:flex-none gap-1 sm:gap-2"
-                >
-                  <Clock className="w-4 h-4" />
-                  <span className="hidden xs:inline">Recent</span>
-                  <span className="xs:hidden">Recent</span>
-                </Button>
-                <Button
-                  variant={viewMode === 'trending' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => handleViewModeChange('trending')}
-                  className="flex-1 sm:flex-none gap-1 sm:gap-2"
-                >
-                  <Flame className="w-4 h-4" />
-                  <span className="hidden xs:inline">Trending</span>
-                  <span className="xs:hidden">Trending</span>
-                </Button>
-              </div>
-            </div>            {viewMode === 'trending' && (
-              <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
-                <span className="text-sm text-muted-foreground">Time period:</span>
-                <div className="flex items-center gap-1 bg-background border rounded-lg p-1 overflow-x-auto">
-                  <Button
-                    variant={trendingPeriod === 'week' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => handleTrendingPeriodChange('week')}
-                    className="text-xs px-2 sm:px-3 py-1 whitespace-nowrap"
-                  >
-                    This Week
-                  </Button>
-                  <Button
-                    variant={trendingPeriod === 'month' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => handleTrendingPeriodChange('month')}
-                    className="text-xs px-2 sm:px-3 py-1 whitespace-nowrap"
-                  >
-                    This Month
-                  </Button>
-                  <Button
-                    variant={trendingPeriod === 'all' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => handleTrendingPeriodChange('all')}
-                    className="text-xs px-2 sm:px-3 py-1 whitespace-nowrap"
-                  >
-                    All Time
-                  </Button>
-                </div>
+          <aside className="paper-reveal hidden space-y-5 border-l pl-6 lg:block" style={{ '--reveal-delay': '240ms' } as React.CSSProperties}>
+            {totalPapers > 0 && (
+              <div>
+                <p className="font-editorial text-5xl leading-none tabular-nums">{totalPapers.toLocaleString()}</p>
+                <p className="mt-2 label-mono">papers logged</p>
               </div>
             )}
+            <ol className="space-y-2 text-sm text-muted-foreground">
+              {['Look it up by DOI, PubMed ID or keywords', 'Put it on a shelf', 'Rate it and write a review'].map((step, i) => (
+                <li key={step} className="flex gap-3">
+                  <span className="font-ident text-[11px] leading-5 text-foreground">{i + 1}</span>
+                  {step}
+                </li>
+              ))}
+            </ol>
+          </aside>
+        </section>
 
-            <p className="text-sm md:text-base text-muted-foreground px-4 md:px-0">
-              {viewMode === 'recent'
-                ? 'Discover the latest research across disciplines'
-                : `Top-rated papers ${trendingPeriod === 'all' ? 'of all time' : `from ${trendingPeriod === 'month' ? 'this month' : 'this week'}`}`
-              }
-            </p>
+        {/* Search */}
+        <section className="mx-auto mt-10 max-w-3xl" aria-label="Search papers">
+          <SearchBar onSearch={handleSearch} isSearching={isLoading} onPaperLoaded={handlePaperLoaded} tier={userTier} />
+        </section>
+
+        {/* Index of papers */}
+        <section className="mt-16" data-papers-section aria-labelledby="papers-heading">
+          <div className="flex flex-col gap-4 border-b sm:flex-row sm:items-end sm:justify-between">
+            <div className="pb-3">
+              <h2 id="papers-heading" className="text-3xl md:text-4xl">
+                {viewMode === 'recent' ? 'Recently logged' : 'Highest rated'}
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {viewMode === 'recent' ? 'The latest papers added by readers on Peerly.' : `Papers readers rated highest, ${periodLabel}.`}
+              </p>
+            </div>
+
+            <div className="flex items-end gap-6">
+              <button onClick={() => handleViewModeChange('recent')} className={tabClass(viewMode === 'recent')}>
+                Recent
+              </button>
+              <button onClick={() => handleViewModeChange('trending')} className={tabClass(viewMode === 'trending')}>
+                Top rated
+              </button>
+            </div>
           </div>
 
-          {/* Papers Grid */}
+          {viewMode === 'trending' && (
+            <div className="flex flex-wrap items-center gap-2 border-b py-3">
+              <span className="label-mono mr-2">Period</span>
+              {(['week', 'month', 'all'] as const).map(period => (
+                <button
+                  key={period}
+                  onClick={() => handleTrendingPeriodChange(period)}
+                  className={`min-h-0 rounded-sm border px-2.5 py-1 text-xs transition-colors ${
+                    trendingPeriod === period
+                      ? 'border-foreground bg-foreground text-background'
+                      : 'border-foreground/15 text-muted-foreground hover:border-foreground/40 hover:text-foreground'
+                  }`}
+                >
+                  {period === 'week' ? 'This week' : period === 'month' ? 'This month' : 'All time'}
+                </button>
+              ))}
+            </div>
+          )}
+
           {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-              {[...Array(6)].map((_, i) => (
-                <PaperCardSkeleton key={i} showAbstract />
+            <div className="divide-y">
+              {[...Array(5)].map((_, i) => (
+                <PaperCardSkeleton key={i} showAbstract row />
               ))}
             </div>
           ) : displayedPapers.length === 0 ? (
-            <div className="text-center py-8 md:py-12">
-              <div className="text-muted-foreground">
-                <p className="text-lg mb-2">No papers available</p>
-                <p className="text-sm">Check back soon for new research</p>
-              </div>
+            <div className="py-16 text-center">
+              <p className="font-editorial text-2xl">Nothing here yet.</p>
+              <p className="mt-2 text-sm text-muted-foreground">Look up a paper above to start the log.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-              {displayedPapers.map((paper) => (
+            <div className="divide-y">
+              {displayedPapers.map((paper, i) => (
                 <PaperCard
                   key={paper.id}
                   paper={paper}
+                  index={firstIndex + i}
                   showAbstract
                   aggregates={paperAggregates[paper.id]}
                   showActions
@@ -360,67 +331,59 @@ export default function HomePage() {
               ))}
             </div>
           )}
-        </div>
 
-        {/* Pagination */}
-        {viewMode === 'recent' && totalPages > 1 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t">
-            <div className="text-sm text-muted-foreground">
-              Showing {Math.min((currentPage - 1) * papersPerPage + 1, totalPapers)} to {Math.min(currentPage * papersPerPage, totalPapers)} of {totalPapers} papers
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1 || isLoading}
-                className="gap-1"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                <span className="hidden sm:inline">Previous</span>
-              </Button>
-              
+          {viewMode === 'recent' && totalPages > 1 && (
+            <nav className="flex flex-col items-center justify-between gap-4 border-t border-foreground/80 pt-5 sm:flex-row" aria-label="Pagination">
+              <p className="label-mono">
+                {Math.min(firstIndex, totalPapers)}–{Math.min(currentPage * papersPerPage, totalPapers)} of {totalPapers}
+              </p>
               <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1 || isLoading}
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                   let pageNum;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
+                  if (totalPages <= 5 || currentPage <= 3) {
                     pageNum = i + 1;
                   } else if (currentPage >= totalPages - 2) {
                     pageNum = totalPages - 4 + i;
                   } else {
                     pageNum = currentPage - 2 + i;
                   }
-                  
+                  const active = currentPage === pageNum;
                   return (
-                    <Button
+                    <button
                       key={pageNum}
-                      variant={currentPage === pageNum ? 'default' : 'outline'}
-                      size="sm"
                       onClick={() => handlePageChange(pageNum)}
                       disabled={isLoading}
-                      className="w-8 h-8 p-0"
+                      aria-current={active ? 'page' : undefined}
+                      className={`h-9 w-9 min-h-0 min-w-0 rounded-sm font-ident text-xs transition-colors ${
+                        active ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                      }`}
                     >
                       {pageNum}
-                    </Button>
+                    </button>
                   );
                 })}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages || isLoading}
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages || isLoading}
-                className="gap-1"
-              >
-                <span className="hidden sm:inline">Next</span>
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-        )}
+            </nav>
+          )}
+        </section>
       </main>
     </div>
   );

@@ -2,89 +2,86 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Peerly Design System - Academic paper tracking interface
-All colors MUST be HSL for consistent theming.
-*/
+/* Peerly design system: a reading room, not a dashboard.
+   Warm paper and ink, serif headings, mono labels, ruled lists.
+   Purple is reserved for the logo (--brand) and a few accents (--primary).
+   All colors are HSL channels. */
 
 @layer base {
   :root {
-    /* Academic color palette - slate/indigo theme */
-    --background: 210 20% 98%;
-    --foreground: 215 25% 27%;
+    --background: 40 33% 96%;
+    --foreground: 28 14% 11%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 215 25% 27%;
+    --card: 42 40% 98.5%;
+    --card-foreground: 28 14% 11%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 215 25% 27%;
+    --popover: 42 40% 98.5%;
+    --popover-foreground: 28 14% 11%;
 
-    /* Indigo primary for academic feel */
-    --primary: 239 84% 67%;
-    --primary-foreground: 0 0% 100%;
+    /* Deep violet from the logo's family, dark enough for text on paper */
+    --primary: 246 52% 50%;
+    --primary-foreground: 42 40% 98%;
 
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 215 25% 27%;
+    --secondary: 38 26% 90%;
+    --secondary-foreground: 28 14% 11%;
 
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 38 24% 91%;
+    --muted-foreground: 30 8% 38%;
 
-    --accent: 210 40% 96%;
-    --accent-foreground: 215 25% 27%;
+    --accent: 38 26% 89%;
+    --accent-foreground: 28 14% 11%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 4 70% 46%;
+    --destructive-foreground: 42 40% 98%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 239 84% 67%;
+    --border: 34 18% 82%;
+    --input: 34 18% 78%;
+    --ring: 246 52% 50%;
 
-    --radius: 0.75rem;
+    --radius: 0.375rem;
 
-    /* Gradient backgrounds for academic polish */
-    --gradient-subtle: linear-gradient(to bottom, hsl(210 20% 98%), hsl(0 0% 100%));
-    --gradient-subtle-dark: linear-gradient(to bottom, hsl(222 84% 5%), hsl(215 28% 17%));
-    
-    /* Academic paper focus colors */
-    --academic-accent: 239 84% 67%;
-    --academic-accent-light: 239 84% 97%;
-    --academic-muted: 215 16% 47%;
-    
-    /* Shelf status colors */
-    --shelf-want: 43 96% 56%;
-    --shelf-reading: 142 76% 36%;
-    --shelf-read: 239 84% 67%;
+    /* The logo colour, kept exactly as it was */
+    --brand: 239 84% 67%;
+
+    --academic-accent: 246 52% 50%;
+    --academic-accent-light: 246 60% 96%;
+    --academic-muted: 30 8% 38%;
+
+    --shelf-want: 36 80% 42%;
+    --shelf-reading: 152 45% 32%;
+    --shelf-read: 246 52% 50%;
   }
 
   .dark {
-    --background: 222 84% 5%;
-    --foreground: 210 40% 98%;
+    --background: 30 10% 8%;
+    --foreground: 40 22% 90%;
 
-    --card: 215 28% 17%;
-    --card-foreground: 210 40% 98%;
+    --card: 30 9% 11%;
+    --card-foreground: 40 22% 90%;
 
-    --popover: 215 28% 17%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 30 9% 11%;
+    --popover-foreground: 40 22% 90%;
 
-    --primary: 239 84% 67%;
-    --primary-foreground: 215 28% 17%;
+    --primary: 244 80% 76%;
+    --primary-foreground: 30 10% 8%;
 
-    --secondary: 215 28% 17%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 30 8% 16%;
+    --secondary-foreground: 40 22% 90%;
 
-    --muted: 215 28% 17%;
-    --muted-foreground: 217 33% 64%;
+    --muted: 30 8% 15%;
+    --muted-foreground: 36 10% 62%;
 
-    --accent: 215 28% 17%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 30 8% 17%;
+    --accent-foreground: 40 22% 90%;
 
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 4 65% 55%;
+    --destructive-foreground: 30 10% 8%;
 
-    --border: 215 28% 17%;
-    --input: 215 28% 17%;
-    --ring: 239 84% 67%;
+    --border: 30 8% 22%;
+    --input: 30 8% 26%;
+    --ring: 244 80% 76%;
 
-    --academic-accent-light: 239 84% 15%;
+    --academic-accent-light: 246 30% 18%;
   }
 }
 
@@ -93,14 +90,37 @@ All colors MUST be HSL for consistent theming.
     @apply border-border;
   }
 
-  body {
-    @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
-  /* Academic typography improvements */
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-semibold tracking-tight;
+  body {
+    @apply bg-background font-sans text-foreground;
+    font-feature-settings: "ss01" 1, "calt" 1;
+  }
+
+  /* Faint paper grain over everything */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    pointer-events: none;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-editorial font-medium tracking-[-0.01em];
+  }
+
+  h5, h6 {
+    @apply font-semibold;
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.18);
   }
 
   /* Mobile-specific improvements */
@@ -155,7 +175,7 @@ All colors MUST be HSL for consistent theming.
 @layer components {
   /* Page layout wrapper */
   .page-wrapper {
-    @apply min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900;
+    @apply min-h-screen bg-background;
   }
 
   .page-container {
@@ -164,7 +184,12 @@ All colors MUST be HSL for consistent theming.
 
   /* Academic cards */
   .academic-card {
-    @apply rounded-2xl border bg-card text-card-foreground shadow-sm hover:shadow-md transition-all duration-200;
+    @apply rounded-md border bg-card text-card-foreground transition-colors duration-200 hover:border-foreground/25;
+  }
+
+  /* Small-caps mono label used for kickers, table heads and metadata */
+  .label-mono {
+    @apply font-ident text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground;
   }
 
   /* Rating stars */

@@ -2,12 +2,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Paper, PaperAggregates } from '@/types';
 import { paperUrl } from '@/lib/routing';
 import { formatDOIUrl } from '@/lib/doi';
-import { ExternalLink, Users, Calendar, BookOpen, Star, Plus, Heart, Loader2, TrendingUp } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { ArrowUpRight, Loader2, Plus, X } from 'lucide-react';
 import { RatingStars } from '@/components/reviews/RatingStars';
 import { PaperActions } from '@/components/paper/PaperActions';
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { cleanAbstract, decodeEntities } from '@/lib/api/enrichment';
 import { dataClient } from '@/lib/dataClient';
 import { type Tier } from '@/lib/tier';
 
@@ -18,9 +17,11 @@ interface PaperCardProps {
   showActions?: boolean;
   onPaperLoaded?: (paper: Paper) => void;
   tier?: Tier;
+  // When set, renders as a numbered row in a ruled list instead of a boxed card
+  index?: number;
 }
 
-export function PaperCard({ paper, showAbstract = false, aggregates, showActions = false, onPaperLoaded, tier = 'free' }: PaperCardProps) {
+export function PaperCard({ paper, showAbstract = false, aggregates, showActions = false, onPaperLoaded, tier = 'free', index }: PaperCardProps) {
   const [showActionBar, setShowActionBar] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
@@ -110,187 +111,137 @@ export function PaperCard({ paper, showAbstract = false, aggregates, showActions
     return `https://scholar.google.com/scholar?q=${query}`;
   };
 
+  const title = decodeEntities(paper.title);
+  const abstract = showAbstract ? cleanAbstract(paper.abstract) : undefined;
+  const venue = paper.journal || paper.conference;
+  const year = paper.publishedDate ? new Date(paper.publishedDate).getFullYear() : paper.year;
+  const isRow = index !== undefined;
+
   return (
-    <div className="academic-card p-6 space-y-4 relative group">
-      <div className="space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-4">
-          <div
+    <article
+      className={`group relative ${
+        isRow
+          ? 'grid grid-cols-[2.25rem_minmax(0,1fr)] gap-x-3 py-6 sm:grid-cols-[3rem_minmax(0,1fr)_7rem] sm:gap-x-5'
+          : 'academic-card flex h-full flex-col p-5'
+      }`}
+    >
+      {isRow && (
+        <span className="pt-1 font-ident text-xs text-muted-foreground" aria-hidden>
+          {String(index).padStart(2, '0')}
+        </span>
+      )}
+
+      <div className="min-w-0 space-y-2">
+        {(venue || year) && (
+          <p className="label-mono truncate">
+            {venue}
+            {venue && year && <span className="mx-1.5 opacity-50">/</span>}
+            {year}
+          </p>
+        )}
+
+        <h3 className="text-[1.3rem] leading-[1.2] sm:text-[1.45rem]">
+          <a
+            href={getPaperLink()}
             onClick={handlePaperClick}
-            className="flex-1 group min-w-0 cursor-pointer"
+            className="decoration-primary/40 decoration-1 underline-offset-4 transition-colors hover:text-primary hover:underline"
           >
-            <h3 className="text-lg md:text-xl font-semibold leading-tight group-hover:text-primary transition-colors pr-2 flex items-center gap-2">
-              {paper.title}
-              {isLoading && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
-            </h3>
-          </div>
+            {title}
+          </a>
+          {isLoading && <Loader2 className="ml-2 inline h-4 w-4 animate-spin text-primary" />}
+        </h3>
+
+        {paper.authors && paper.authors.length > 0 && (
+          <p className="text-sm text-muted-foreground">
+            <a
+              href={getGoogleScholarUrl(paper.authors[0])}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="transition-colors hover:text-foreground"
+              title={`Search for ${paper.authors[0]}'s publications on Google Scholar`}
+            >
+              {paper.authors.slice(0, 3).join(', ')}
+              {paper.authors.length > 3 && ` and ${paper.authors.length - 3} more`}
+            </a>
+          </p>
+        )}
+
+        {abstract && (
+          <p className="line-clamp-2 max-w-[68ch] font-editorial text-[15.5px] leading-relaxed text-foreground/75">
+            {abstract}
+          </p>
+        )}
+
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1 text-sm">
+          {aggregates && aggregates.count > 0 && (
+            <span className="flex items-center gap-1.5 [&_button]:min-h-0 [&_button]:min-w-0">
+              <RatingStars rating={aggregates.avgRating} readonly size="sm" />
+              <span className="font-ident text-[11px] text-muted-foreground">
+                {aggregates.avgRating.toFixed(1)} · {aggregates.count} {aggregates.count === 1 ? 'review' : 'reviews'}
+              </span>
+            </span>
+          )}
+
+          <button
+            onClick={handlePaperClick}
+            disabled={isLoading}
+            className="min-h-0 min-w-0 font-medium text-foreground underline decoration-foreground/25 underline-offset-4 transition-colors hover:decoration-foreground disabled:opacity-50"
+          >
+            {isLoading ? 'Opening…' : 'Read more'}
+          </button>
+
+          {showActions && (
+            <button
+              onClick={() => setShowActionBar(open => !open)}
+              aria-expanded={showActionBar}
+              className="inline-flex min-h-0 min-w-0 items-center gap-1 text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {showActionBar ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+              {showActionBar ? 'Close' : 'Add to shelf'}
+            </button>
+          )}
+
           <a
             href={getExternalLink()}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-shrink-0 p-2 text-muted-foreground hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-md self-start"
-            aria-label={paper.doi ? `View paper at ${paper.doi}` : "View paper externally"}
+            className="inline-flex items-center gap-1 text-muted-foreground transition-colors hover:text-foreground"
+            aria-label={paper.doi ? `Open ${paper.doi} at the publisher` : 'View paper externally'}
           >
-            <ExternalLink className="w-4 h-4" />
+            {paper.doi ? 'DOI' : 'Source'}
+            <ArrowUpRight className="h-3.5 w-3.5" />
           </a>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-sm text-muted-foreground">
-          {paper.authors && paper.authors.length > 0 && (
-            <div className="flex items-start gap-1.5 min-w-0 flex-1">
-              <Users className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              <a
-                href={getGoogleScholarUrl(paper.authors[0])}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-muted-foreground hover:text-primary transition-colors underline decoration-transparent hover:decoration-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm break-words"
-                title={`Search for ${paper.authors[0]}'s publications on Google Scholar`}
-              >
-                {paper.authors.slice(0, 2).join(', ')}
-                {paper.authors.length > 2 && ` +${paper.authors.length - 2} more`}
-              </a>
-            </div>
-          )}
-          
-          {paper.publishedDate && (
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <Calendar className="w-4 h-4" />
-              <span>{new Date(paper.publishedDate).getFullYear()}</span>
-            </div>
-          )}
-
-          {paper.referencesCount && (
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <BookOpen className="w-4 h-4" />
-              <span>{paper.referencesCount} refs</span>
-            </div>
-          )}
-
-          {paper.citationCount && paper.citationCount > 0 && (
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <TrendingUp className="w-4 h-4" />
-              <span>{paper.citationCount} citations</span>
-            </div>
-          )}
-        </div>
-
-        {(paper.journal || paper.conference) && (
-          <div>
-            <Badge variant="secondary" className="text-xs">
-              {paper.journal || paper.conference}
-            </Badge>
+        {showActions && showActionBar && (
+          <div className="pt-3 [&>div]:max-w-none">
+            <PaperActions
+              paperId={paper.id}
+              paper={{
+                doi: paper.doi,
+                title: paper.title,
+                authors: paper.authors,
+                year,
+                journal: paper.journal,
+                conference: paper.conference,
+                publisher: paper.publisher
+              }}
+              tier={tier}
+            />
           </div>
-        )}
-
-        {/* Rating Display */}
-        {aggregates && aggregates.count > 0 && (
-          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-            <div className="flex items-center gap-1">
-              <RatingStars 
-                rating={aggregates.avgRating} 
-                readonly 
-                size="sm" 
-              />
-              <span className="text-xs text-muted-foreground ml-1">
-                {aggregates.avgRating.toFixed(1)}
-              </span>
-            </div>
-            <span className="text-xs text-muted-foreground">
-              ({aggregates.count} {aggregates.count === 1 ? 'review' : 'reviews'})
-            </span>
-          </div>
-        )}
-
-        {showAbstract && paper.abstract && (
-          <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
-            {paper.abstract}
-          </p>
         )}
       </div>
 
-      <div className="pt-2 border-t">
-        <button
-          onClick={handlePaperClick}
-          disabled={isLoading}
-          className="text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm disabled:opacity-50 flex items-center gap-2"
-        >
-          {isLoading ? (
+      {isRow && (
+        <div className="hidden text-right sm:block">
+          {paper.citationCount ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Loading...
+              <p className="font-editorial text-2xl leading-none tabular-nums">{paper.citationCount.toLocaleString()}</p>
+              <p className="mt-1 label-mono">citations</p>
             </>
-          ) : (
-            'View details →'
-          )}
-        </button>
-      </div>
-
-      {/* Sticky Action Bar */}
-      {showActions && (
-        <>
-          {/* Mobile Action Bar - Less intrusive */}
-          <div className="md:hidden fixed bottom-4 right-4 z-50">
-            <Button
-              onClick={() => setShowActionBar(!showActionBar)}
-              className="rounded-full w-12 h-12 shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              size="sm"
-            >
-              {showActionBar ? <Heart className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
-            </Button>
-          </div>
-
-          {/* Mobile Action Bar Sheet */}
-          {showActionBar && (
-            <div className="md:hidden fixed bottom-20 left-4 right-4 z-40 bg-card border rounded-2xl shadow-xl p-4 focus-within:ring-2 focus-within:ring-primary/60 max-h-80 overflow-y-auto">
-              <PaperActions
-                paperId={paper.id}
-                paper={{
-                  doi: paper.doi,
-                  title: paper.title,
-                  authors: paper.authors,
-                  year: paper.publishedDate ? new Date(paper.publishedDate).getFullYear() : undefined,
-                  journal: paper.journal,
-                  conference: paper.conference,
-                  publisher: paper.publisher
-                }}
-                tier={tier}
-              />
-            </div>
-          )}
-
-          {/* Desktop Action Bar */}
-          <div className="hidden md:block absolute top-4 right-4 z-30">
-            <div className="bg-card/95 backdrop-blur-sm border rounded-xl shadow-lg p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 focus-within:opacity-100">
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowActionBar(!showActionBar)}
-                  className="p-2 h-8 w-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                >
-                  <Star className="w-4 h-4" />
-                </Button>
-                {showActionBar && (
-                  <div className="absolute top-full right-0 mt-2 w-80 bg-card border rounded-xl shadow-xl p-4 z-40">
-                    <PaperActions
-                      paperId={paper.id}
-                      paper={{
-                        doi: paper.doi,
-                        title: paper.title,
-                        authors: paper.authors,
-                        year: paper.publishedDate ? new Date(paper.publishedDate).getFullYear() : undefined,
-                        journal: paper.journal,
-                        conference: paper.conference,
-                        publisher: paper.publisher
-                      }}
-                      tier={tier}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </>
+          ) : null}
+        </div>
       )}
-    </div>
+    </article>
   );
 }

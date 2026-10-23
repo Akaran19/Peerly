@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, X, ChevronDown, Loader2, Plane, Info, Bookmark } from 'lucide-react';
+import { ArrowRight, Search, X, Loader2, Bookmark } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { isValidDOI, normalizeDOI } from '@/lib/doi';
 import { paperDoiUrl, paperPmidUrl, paperUrl } from '@/lib/routing';
 import { dataClient } from '@/lib/dataClient';
@@ -12,6 +11,13 @@ import { type Tier } from '@/lib/tier';
 import { toast } from '@/hooks/use-toast';
 
 type SearchMode = 'doi' | 'pmid' | 'keywords';
+
+
+const SEARCH_MODES: Array<{ value: SearchMode; label: string }> = [
+  { value: 'keywords', label: 'Keywords' },
+  { value: 'doi', label: 'DOI' },
+  { value: 'pmid', label: 'PubMed ID' },
+];
 
 interface SearchBarProps {
   onSearch?: (query: string, mode: SearchMode) => void;
@@ -31,7 +37,7 @@ export function SearchBar({
   tier = 'free'
 }: SearchBarProps) {
   const [query, setQuery] = useState('');
-  const [selectedMode, setSelectedMode] = useState<SearchMode | null>(null);
+  const [selectedMode, setSelectedMode] = useState<SearchMode | null>('keywords');
   const [validationError, setValidationError] = useState<string>('');
   const [isLoadingPaper, setIsLoadingPaper] = useState(false);
   const navigate = useNavigate();
@@ -194,67 +200,38 @@ export function SearchBar({
   return (
     <div className="space-y-4">
       {/* Combined Search Bar */}
-      <div className="max-w-full sm:max-w-2xl mx-auto px-2 sm:px-0">
+      <div className="max-w-full">
         <form onSubmit={handleSubmit} className="relative">
-          <div className={`flex flex-col sm:flex-row items-stretch sm:items-center border-2 rounded-2xl overflow-hidden transition-all duration-300 ${
-            isSearching && selectedMode === 'keywords' 
-              ? 'border-primary/60 shadow-lg shadow-primary/20' 
-              : 'focus-within:ring-2 focus-within:ring-primary/60'
-          }`}>
-            {/* Mode Selector */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className={`flex items-center justify-between sm:justify-start gap-2 px-3 py-3 h-12 border-b sm:border-b-0 sm:border-r rounded-none min-w-full sm:min-w-[120px] md:min-w-[140px] ${
-                    selectedMode === 'doi'
-                      ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300'
-                      : selectedMode === 'pmid'
-                      ? 'bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-950 dark:text-green-300'
-                      : selectedMode === 'keywords'
-                      ? 'bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-950 dark:text-red-300'
-                      : 'bg-muted/50 text-muted-foreground hover:bg-muted dark:bg-muted/20 dark:text-muted-foreground'
-                  }`}
-                >
-                  <span className="truncate">
-                    {selectedMode === 'doi' && 'DOI'}
-                    {selectedMode === 'pmid' && 'PubMed ID'}
-                    {selectedMode === 'keywords' && 'Keywords'}
-                  </span>
-                  <ChevronDown className="w-4 h-4 flex-shrink-0" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-full sm:w-[140px] md:w-[160px]">
-                <DropdownMenuItem
-                  onClick={() => handleModeChange('doi')}
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                  <span>DOI</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => handleModeChange('pmid')}
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                  <span>PubMed ID</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => handleModeChange('keywords')}
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                  <span>Keywords</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          <div className="mb-3 flex items-end gap-5" role="tablist" aria-label="Search by">
+            {SEARCH_MODES.map(mode => (
+              <button
+                key={mode.value}
+                type="button"
+                role="tab"
+                aria-selected={selectedMode === mode.value}
+                onClick={() => handleModeChange(mode.value)}
+                className={`min-h-0 min-w-0 border-b-2 pb-1 font-ident text-[11px] uppercase tracking-[0.16em] transition-colors ${
+                  selectedMode === mode.value
+                    ? 'border-primary text-foreground'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {mode.label}
+              </button>
+            ))}
+          </div>
 
-            {/* Search Input */}
-            <div className="flex-1 relative">
-              <Search className={`absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-all duration-300 ${
-                isSearching && selectedMode === 'keywords' ? 'text-primary animate-pulse' : 'text-muted-foreground'
-              }`} />
+          <div
+            className={`flex items-stretch overflow-hidden rounded-md border border-foreground bg-card shadow-[4px_4px_0_0_hsl(var(--foreground))] transition-shadow focus-within:shadow-[6px_6px_0_0_hsl(var(--primary))] ${
+              isSearching && selectedMode === 'keywords' ? 'shadow-[6px_6px_0_0_hsl(var(--primary))]' : ''
+            }`}
+          >
+            <div className="relative flex-1">
+              <Search
+                className={`absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 ${
+                  isSearching && selectedMode === 'keywords' ? 'animate-pulse text-primary' : 'text-muted-foreground'
+                }`}
+              />
               <Input
                 type="text"
                 value={query}
@@ -262,62 +239,42 @@ export function SearchBar({
                 placeholder={getPlaceholder()}
                 autoFocus={autoFocus}
                 disabled={!selectedMode}
-                className="pl-8 sm:pl-10 pr-8 sm:pr-12 h-12 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none text-sm sm:text-base disabled:opacity-50"
+                className="h-14 rounded-none border-0 bg-transparent pl-11 pr-10 font-editorial text-lg placeholder:text-muted-foreground/70 focus-visible:ring-0 focus-visible:ring-offset-0 disabled:opacity-50"
                 aria-describedby={validationError ? "search-error" : undefined}
+                aria-label="Search query"
               />
               {query && (
-                <Button
+                <button
                   type="button"
-                  variant="ghost"
-                  size="sm"
                   onClick={handleClear}
-                  className="absolute right-1 sm:right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0 hover:bg-muted rounded-full"
+                  className="absolute right-2 top-1/2 flex h-8 min-h-0 w-8 min-w-0 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="h-4 w-4" />
                   <span className="sr-only">Clear search</span>
-                </Button>
+                </button>
               )}
             </div>
 
-            {/* Search Button */}
-            <Button
+            <button
               type="submit"
               disabled={isSubmitDisabled || isSearching}
-              className="px-3 sm:px-6 py-3 h-12 rounded-none border-t sm:border-t-0 sm:border-l relative overflow-hidden min-w-[48px] sm:min-w-[80px]"
+              className="flex min-w-[56px] items-center justify-center gap-2 border-l border-foreground bg-foreground px-4 text-sm font-medium text-background transition-colors hover:bg-foreground/85 disabled:cursor-not-allowed disabled:opacity-60 sm:min-w-[110px]"
             >
-              {isLoadingPaper ? (
-                <div className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span className="hidden sm:inline">Loading...</span>
-                </div>
-              ) : isSearching && selectedMode === 'keywords' ? (
-                <div className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span className="hidden sm:inline">Searching...</span>
-                </div>
+              {isLoadingPaper || (isSearching && selectedMode === 'keywords') ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <div className="flex items-center gap-2">
-                  <Search className="w-4 h-4" />
-                  <span className="hidden sm:inline">Search</span>
-                </div>
+                <ArrowRight className="h-4 w-4" />
               )}
-              
-              {/* Animated paper airplane for keyword search */}
-              {isSearching && selectedMode === 'keywords' && !isLoadingPaper && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <Plane className="w-6 h-6 text-primary animate-fly" 
-                         style={{ 
-                           transform: 'rotate(45deg)'
-                         }} />
-                </div>
-              )}
-            </Button>
+              <span className="hidden sm:inline">
+                {isLoadingPaper ? 'Loading' : isSearching && selectedMode === 'keywords' ? 'Searching' : 'Search'}
+              </span>
+            </button>
           </div>
         </form>
 
         {/* Save Search Button for Keywords */}
         {selectedMode === 'keywords' && query.trim() && (
-          <div className="flex justify-center mt-4">
+          <div className="mt-4 flex">
             <UpgradeGuard tier={tier} feature="saved searches">
               <Button 
                 variant="outline" 

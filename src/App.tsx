@@ -5,6 +5,7 @@ import AuthProvider from '@/hooks/useAuth';
 import { Suspense, lazy } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { CookieConsent } from '@/components/layout/CookieConsent';
+import Footer from '@/components/layout/Footer';
 import { useGoogleAnalytics } from '@/lib/analytics';
 
 // Lazy load pages for code splitting
@@ -64,6 +65,7 @@ function AppContent() {
           <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
             <AppContent />
           </Suspense>
+          <Footer />
           <Toaster />
           <CookieConsent />
         </Router>

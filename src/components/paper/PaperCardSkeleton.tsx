@@ -2,52 +2,32 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 interface PaperCardSkeletonProps {
   showAbstract?: boolean;
+  // Matches PaperCard's numbered row layout
+  row?: boolean;
 }
 
-export function PaperCardSkeleton({ showAbstract = false }: PaperCardSkeletonProps) {
+export function PaperCardSkeleton({ showAbstract = false, row = false }: PaperCardSkeletonProps) {
   return (
-    <div className="academic-card p-6 space-y-4">
+    <div
+      className={
+        row
+          ? 'grid grid-cols-[2.25rem_minmax(0,1fr)] gap-x-3 py-6 sm:grid-cols-[3rem_minmax(0,1fr)_7rem] sm:gap-x-5'
+          : 'academic-card space-y-3 p-5'
+      }
+    >
+      {row && <Skeleton className="mt-1 h-3 w-5" />}
       <div className="space-y-3">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-2 flex-1">
-            <Skeleton className="h-6 w-4/5" />
-            <Skeleton className="h-4 w-3/5" />
-          </div>
-          <Skeleton className="w-8 h-8 rounded-full" />
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Skeleton className="w-4 h-4 rounded-full" />
-          <Skeleton className="h-4 w-20" />
-          <Skeleton className="w-4 h-4 rounded-full" />
-          <Skeleton className="h-4 w-16" />
-          <Skeleton className="w-4 h-4 rounded-full" />
-          <Skeleton className="h-4 w-12" />
-        </div>
-
-        <Skeleton className="h-5 w-24" />
-
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1">
-            {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} className="w-4 h-4 rounded" />
-            ))}
-          </div>
-          <Skeleton className="h-4 w-16" />
-        </div>
-
+        <Skeleton className="h-3 w-40" />
+        <Skeleton className="h-6 w-4/5" />
+        <Skeleton className="h-4 w-2/5" />
         {showAbstract && (
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-4/5" />
-            <Skeleton className="h-4 w-3/5" />
+          <div className="space-y-2 pt-1">
+            <Skeleton className="h-4 w-full max-w-[60ch]" />
+            <Skeleton className="h-4 w-3/4 max-w-[45ch]" />
           </div>
         )}
       </div>
-
-      <div className="pt-2 border-t">
-        <Skeleton className="h-4 w-24" />
-      </div>
+      {row && <Skeleton className="ml-auto hidden h-7 w-14 sm:block" />}
     </div>
   );
 }

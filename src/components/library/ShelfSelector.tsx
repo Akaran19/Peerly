@@ -14,22 +14,22 @@ const shelfConfig = {
     label: 'Want to Read',
     shortLabel: 'Want',
     icon: Eye,
-    colorClass: 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300',
-    selectedColorClass: 'border-blue-500 bg-blue-600 text-white hover:bg-blue-700 dark:border-blue-400 dark:bg-blue-500 dark:text-white'
+    colorClass: 'border-foreground/15 bg-transparent text-foreground hover:border-foreground/50',
+    selectedColorClass: 'border-foreground bg-foreground text-background hover:bg-foreground/90'
   },
   READING: {
     label: 'Currently Reading', 
     shortLabel: 'Reading',
     icon: BookOpen,
-    colorClass: 'border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-green-800 dark:bg-green-950 dark:text-green-300',
-    selectedColorClass: 'border-green-500 bg-green-600 text-white hover:bg-green-700 dark:border-green-400 dark:bg-green-500 dark:text-white'
+    colorClass: 'border-foreground/15 bg-transparent text-foreground hover:border-foreground/50',
+    selectedColorClass: 'border-foreground bg-foreground text-background hover:bg-foreground/90'
   },
   READ: {
     label: 'Read',
     shortLabel: 'Read', 
     icon: CheckCircle2,
-    colorClass: 'border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-300',
-    selectedColorClass: 'border-purple-500 bg-purple-600 text-white hover:bg-purple-700 dark:border-purple-400 dark:bg-purple-500 dark:text-white'
+    colorClass: 'border-foreground/15 bg-transparent text-foreground hover:border-foreground/50',
+    selectedColorClass: 'border-foreground bg-foreground text-background hover:bg-foreground/90'
   }
 } as const;
 

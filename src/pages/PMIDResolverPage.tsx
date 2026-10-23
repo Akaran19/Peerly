@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { GraduationCap, ExternalLink, AlertCircle } from 'lucide-react';
+import { ExternalLink, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -137,14 +137,9 @@ export default function PMIDResolverPage() {
       <Header />
       <main className="page-container">
         <div className="max-w-4xl mx-auto py-8">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-3 bg-primary/10 rounded-2xl">
-              <GraduationCap className="w-8 h-8 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">PubMed Record</h1>
-              <p className="text-muted-foreground">PMID: {record.uid}</p>
-            </div>
+          <div className="mb-6 border-b border-foreground/80 pb-6">
+            <p className="label-mono mb-3">PubMed record · PMID {record.uid}</p>
+            <h1 className="text-4xl font-normal tracking-[-0.025em]">PubMed Record</h1>
           </div>
 
           <Card className="p-6 space-y-4">

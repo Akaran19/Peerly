@@ -366,7 +366,7 @@ export function PaperActions({ paperId, paper, onUpdate, tier = 'free', showDoiA
 
             <div className="space-y-4">
               <div className="text-center">
-                <h3 className="font-semibold text-base mb-2">Add to Library</h3>
+                <h3 className="mb-1 text-xl">Add to your shelf</h3>
                 <p className="text-xs text-muted-foreground mb-4">
                   Choose how you want to track this paper
                 </p>
@@ -381,7 +381,7 @@ export function PaperActions({ paperId, paper, onUpdate, tier = 'free', showDoiA
             {userPaper && (
               <>
                 <div>
-                  <h3 className="font-semibold mb-3">Rate this Paper</h3>
+                  <h3 className="mb-3 text-lg">Rate this paper</h3>
                   <div className="flex items-center gap-3">
                     <RatingStars
                       rating={userPaper.rating || 0}
@@ -565,7 +565,7 @@ export function PaperActions({ paperId, paper, onUpdate, tier = 'free', showDoiA
 
           <div className="space-y-4">
             <div className="text-center">
-              <h3 className="font-semibold text-base mb-2">Add to Library</h3>
+              <h3 className="mb-1 text-xl">Add to your shelf</h3>
               <p className="text-xs text-muted-foreground mb-4">
                 Choose how you want to track this paper
               </p>
@@ -580,7 +580,7 @@ export function PaperActions({ paperId, paper, onUpdate, tier = 'free', showDoiA
           {userPaper && (
             <>
               <div>
-                <h3 className="font-semibold mb-3">Rate this Paper</h3>
+                <h3 className="mb-3 text-lg">Rate this paper</h3>
                 <div className="flex items-center gap-3">
                   <RatingStars
                     rating={userPaper.rating || 0}

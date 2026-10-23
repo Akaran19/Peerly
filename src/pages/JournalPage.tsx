@@ -103,11 +103,9 @@ export default function JournalPage() {
           {/* Journal Header */}
           <div className="space-y-4">
             <div className="flex items-start gap-4">
-              <div className="p-3 bg-primary/10 rounded-2xl">
-                <BookOpen className="w-8 h-8 text-primary" />
-              </div>
-              <div className="flex-1">
-                <h1 className="text-3xl md:text-4xl font-bold">
+              <div className="flex-1 border-b border-foreground/80 pb-6">
+                <p className="label-mono mb-3">Journal</p>
+                <h1 className="text-4xl font-normal tracking-[-0.025em] md:text-6xl">
                   {journal.name}
                 </h1>
                 <div className="flex flex-wrap items-center gap-4 mt-2">

@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom';
-import { GraduationCap, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Header from '@/components/layout/Header';
 
@@ -8,36 +7,29 @@ export default function NotFoundPage() {
     <div className="page-wrapper">
       <Header />
       <main className="page-container">
-        <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 text-center">
-          <div className="space-y-4">
-            <div className="flex justify-center">
-              <div className="p-4 bg-primary/10 rounded-2xl">
-                <GraduationCap className="w-12 h-12 text-primary" />
-              </div>
-            </div>
-            <h1 className="text-6xl font-bold text-foreground">404</h1>
-            <div className="space-y-2">
-              <h2 className="text-2xl font-semibold">Paper Not Found</h2>
-              <p className="text-muted-foreground max-w-md">
-                The academic paper or page you're looking for doesn't exist in our database.
-              </p>
+        <section className="grid min-h-[55vh] items-center gap-10 md:grid-cols-[auto_minmax(0,1fr)] md:gap-16">
+          <p
+            className="font-editorial text-[9rem] font-normal italic leading-none tracking-[-0.05em] text-primary md:text-[13rem]"
+            aria-hidden
+          >
+            404
+          </p>
+          <div className="max-w-md space-y-5 md:border-l md:pl-10">
+            <p className="label-mono">Not on the shelf</p>
+            <h1 className="text-4xl leading-tight">We couldn&rsquo;t find that page.</h1>
+            <p className="text-muted-foreground">
+              The paper or page you&rsquo;re looking for doesn&rsquo;t exist, or it may have moved. Try looking it up by DOI from the home page.
+            </p>
+            <div className="flex flex-wrap gap-3 pt-2">
+              <Button asChild>
+                <Link to="/">Back to the index</Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link to="/signin">Sign in</Link>
+              </Button>
             </div>
           </div>
-          
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Button asChild size="lg">
-              <Link to="/">
-                <Home className="w-4 h-4 mr-2" />
-                Return Home
-              </Link>
-            </Button>
-            <Button variant="outline" size="lg" asChild>
-              <Link to="/signin">
-                Sign In
-              </Link>
-            </Button>
-          </div>
-        </div>
+        </section>
       </main>
     </div>
   );

@@ -19,6 +19,7 @@ export default {
 		},
 		extend: {
 			colors: {
+				brand: 'hsl(var(--brand))',
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
 				ring: 'hsl(var(--ring))',
@@ -65,7 +66,8 @@ export default {
 				}
 			},
 			fontFamily: {
-				// Paper pages read like a journal title page
+				sans: ['"Schibsted Grotesk"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+				// Headings and reading text
 				editorial: ['Newsreader', 'Georgia', 'Cambria', 'serif'],
 				ident: ['"Martian Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace']
 			},

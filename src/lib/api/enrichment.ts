@@ -229,17 +229,24 @@ export function getFurtherReading(profile: PaperProfile, limit = 5): Promise<Rel
   return promise;
 }
 
-// Crossref abstracts arrive as JATS XML (<jats:p>, <jats:title>Abstract</jats:title>, ...)
-export function cleanAbstract(raw?: string | null): string | undefined {
-  if (!raw) return undefined;
-  const text = raw
-    .replace(/<jats:title>[^<]*<\/jats:title>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
+// Titles from Crossref sometimes keep HTML entities ("Environments &amp; Health")
+export function decodeEntities(text: string): string {
+  return text
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
+    .replace(/&#39;/g, "'");
+}
+
+// Crossref abstracts arrive as JATS XML (<jats:p>, <jats:title>Abstract</jats:title>, ...)
+export function cleanAbstract(raw?: string | null): string | undefined {
+  if (!raw) return undefined;
+  const text = decodeEntities(
+    raw
+      .replace(/<jats:title>[^<]*<\/jats:title>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+  )
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/^abstract[:.\s]+/i, '');
