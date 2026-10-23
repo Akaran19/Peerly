@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Mail } from 'lucide-react';
-import { ProfileAffiliation, ProfileAuthor } from '@/lib/enrichment';
+import { ProfileAffiliation, ProfileAuthor } from '@/lib/api/enrichment';
 
 const COLLAPSED_AUTHOR_COUNT = 12;
 

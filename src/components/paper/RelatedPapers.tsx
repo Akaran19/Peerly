@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowUpRight, Loader2 } from 'lucide-react';
 import { dataClient } from '@/lib/dataClient';
 import { paperUrl } from '@/lib/routing';
-import { getFurtherReading, PaperProfile, RelatedPaper } from '@/lib/enrichment';
+import { getFurtherReading, PaperProfile, RelatedPaper } from '@/lib/api/enrichment';
 import { toast } from '@/hooks/use-toast';
 
 export default function RelatedPapers({ profile }: { profile: PaperProfile }) {

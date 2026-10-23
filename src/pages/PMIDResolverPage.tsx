@@ -4,7 +4,7 @@ import { GraduationCap, ExternalLink, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import Header from '@/components/Header';
+import Header from '@/components/layout/Header';
 
 interface PubMedRecord {
   uid: string;

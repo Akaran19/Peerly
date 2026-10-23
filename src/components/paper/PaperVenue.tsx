@@ -1,5 +1,5 @@
 import { BadgeCheck } from 'lucide-react';
-import { PaperProfile } from '@/lib/enrichment';
+import { PaperProfile } from '@/lib/api/enrichment';
 
 interface PaperVenueProps {
   venue?: PaperProfile['venue'];

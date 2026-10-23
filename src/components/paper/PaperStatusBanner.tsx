@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, FilePen } from 'lucide-react';
-import { getPaperStatus, PaperStatus, PaperUpdate, PaperUpdateType } from '@/lib/enrichment';
+import { getPaperStatus, PaperStatus, PaperUpdate, PaperUpdateType } from '@/lib/api/enrichment';
 import { formatDOIUrl } from '@/lib/doi';
 
 const LABELS: Record<PaperUpdateType, string> = {

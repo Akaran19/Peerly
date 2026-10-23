@@ -5,7 +5,7 @@ import { normalizeDOI, decodeDOIFromUrl } from './doi';
 import { supabase } from '@/integrations/supabase/client';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/integrations/supabase/types';
-import { getPaperByDOI, multiApiToPaper, searchPapersByKeywords, getPaperByPMID } from '@/lib/crossref';
+import { getPaperByDOI, multiApiToPaper, searchPapersByKeywords, getPaperByPMID } from '@/lib/api/metadata';
 import { GuestStorage } from './guestStorage';
 import { safeLocalStorage } from '@/lib/safeStorage';
 

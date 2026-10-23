@@ -4,7 +4,7 @@ import { Toaster } from '@/components/ui/toaster';
 import AuthProvider from '@/hooks/useAuth';
 import { Suspense, lazy } from 'react';
 import { Analytics } from '@vercel/analytics/react';
-import { CookieConsent } from '@/components/CookieConsent';
+import { CookieConsent } from '@/components/layout/CookieConsent';
 import { useGoogleAnalytics } from '@/lib/analytics';
 
 // Lazy load pages for code splitting

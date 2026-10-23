@@ -3,7 +3,7 @@ import { Check, Star, Users, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import Header from '@/components/Header';
+import Header from '@/components/layout/Header';
 
 export default function PricingPage() {
   return (

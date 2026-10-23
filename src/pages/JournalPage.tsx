@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Journal, Paper } from '@/types';
 import { dataClient } from '@/lib/dataClient';
-import { PaperCard } from '@/components/PaperCard';
+import { PaperCard } from '@/components/paper/PaperCard';
 import { BookOpen, ExternalLink, Hash } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import Header from '@/components/Header';
+import Header from '@/components/layout/Header';
 
 export default function JournalPage() {
   const params = useParams();

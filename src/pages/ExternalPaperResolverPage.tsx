@@ -5,7 +5,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
-import Header from '@/components/Header';
+import Header from '@/components/layout/Header';
 
 interface ExternalPaper {
   doi?: string;

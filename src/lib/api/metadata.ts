@@ -3,8 +3,8 @@
 // Based on: https://api.openalex.org/, https://api.crossref.org/, https://api.semanticscholar.org/
 
 import { Paper, Author } from '@/types';
-import { normalizeDOI } from './doi';
-import { withMailto } from './enrichment';
+import { normalizeDOI } from '@/lib/doi';
+import { withMailto } from '@/lib/api/enrichment';
 
 // Author interface for API responses (different from database Author)
 interface ApiAuthor {
@@ -658,7 +658,7 @@ export async function searchPapersByKeywords(query: string, limit = 20): Promise
 
   try {
     // Import search parser for advanced queries
-    const { parseSearchQuery, buildCrossRefSearchQuery } = await import('./searchParser');
+    const { parseSearchQuery, buildCrossRefSearchQuery } = await import('@/lib/searchParser');
 
     // Parse the search query
     const parsedQuery = parseSearchQuery(query);

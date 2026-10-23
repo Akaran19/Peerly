@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { User, UserPaper, Shelf } from '@/types';
 import { dataClient } from '@/lib/dataClient';
-import { UserLibraryTabs } from '@/components/UserLibraryTabs';
+import { UserLibraryTabs } from '@/components/library/UserLibraryTabs';
 import { User as UserIcon, Settings, Calendar, BookOpen, Star, MessageSquare, Edit3, Check, X, Upload, Camera } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import Header from '@/components/Header';
+import Header from '@/components/layout/Header';
 import { GuestStorage } from '@/lib/guestStorage';
 import { getTier, type Tier } from '@/lib/account';
 

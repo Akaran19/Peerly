@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { GraduationCap, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { AuthButton } from '@/components/AuthButton';
+import { AuthButton } from '@/components/layout/AuthButton';
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);

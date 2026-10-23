@@ -1,4 +1,4 @@
-import { PaperProfile } from '@/lib/enrichment';
+import { PaperProfile } from '@/lib/api/enrichment';
 
 const YEARS_SHOWN = 10;
 

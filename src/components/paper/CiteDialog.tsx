@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
-import { CITATION_FORMATS, CitationFormat, getCitation } from '@/lib/enrichment';
+import { CITATION_FORMATS, CitationFormat, getCitation } from '@/lib/api/enrichment';
 
 const FORMAT_KEYS = Object.keys(CITATION_FORMATS) as CitationFormat[];
 

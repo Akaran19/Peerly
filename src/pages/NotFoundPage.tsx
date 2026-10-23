@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { GraduationCap, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import Header from '@/components/Header';
+import Header from '@/components/layout/Header';
 
 export default function NotFoundPage() {
   return (

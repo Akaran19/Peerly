@@ -1,5 +1,5 @@
 import { PaperAggregates } from '@/types';
-import { RatingStars } from './RatingStars';
+import { RatingStars } from '@/components/reviews/RatingStars';
 import { Users, Star } from 'lucide-react';
 
 interface AggregateStatsProps {

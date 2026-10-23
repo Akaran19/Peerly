@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { User, UserPaper } from '@/types';
 import { dataClient } from '@/lib/dataClient';
-import { UserLibraryTabs } from '@/components/UserLibraryTabs';
+import { UserLibraryTabs } from '@/components/library/UserLibraryTabs';
 import { User as UserIcon, Calendar, BookOpen } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import Header from '@/components/Header';
+import Header from '@/components/layout/Header';
 import { getTier, type Tier } from '@/lib/account';
 
 export default function UserPage() {

@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Download, Trash2, AlertTriangle } from 'lucide-react'
-import Header from '@/components/Header'
+import Header from '@/components/layout/Header'
 import { Link } from 'react-router-dom'
 
 export default function DataManagementPage() {

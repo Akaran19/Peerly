@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { UserPaper, Shelf } from '@/types';
-import { ShelfSelector } from './ShelfSelector';
-import { RatingStars } from './RatingStars';
-import { ReviewForm } from './ReviewForm';
+import { ShelfSelector } from '@/components/library/ShelfSelector';
+import { RatingStars } from '@/components/reviews/RatingStars';
+import { ReviewForm } from '@/components/reviews/ReviewForm';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { LogIn, Copy, ExternalLink, Quote, Save, Tag } from 'lucide-react';
@@ -13,7 +13,7 @@ import { formatDOIUrl } from '@/lib/doi';
 import { trackPaperInteraction } from '@/lib/analytics';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { UpgradeGuard, ProBadge } from '@/components/UpgradeGuard';
+import { UpgradeGuard, ProBadge } from '@/components/account/UpgradeGuard';
 import { type Tier } from '@/lib/tier';
 
 interface PaperActionsProps {

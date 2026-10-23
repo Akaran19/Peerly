@@ -7,7 +7,7 @@ import { Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
-import Header from '@/components/Header';
+import Header from '@/components/layout/Header';
 
 export default function DOIResolverPage() {
   const params = useParams();

@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Paper, PaperAggregates } from '@/types';
-import { SearchBar } from '@/components/SearchBar';
-import { PaperCard } from '@/components/PaperCard';
-import { PaperCardSkeleton } from '@/components/PaperCardSkeleton';
-import { AuthButton } from '@/components/AuthButton';
+import { SearchBar } from '@/components/search/SearchBar';
+import { PaperCard } from '@/components/paper/PaperCard';
+import { PaperCardSkeleton } from '@/components/paper/PaperCardSkeleton';
+import { AuthButton } from '@/components/layout/AuthButton';
 import { getRecentPapers, getTrendingPapers, getPaperAggregates } from '@/lib/supabaseHelpers';
 import { mapDatabasePaperToPaper, dataClient } from '@/lib/dataClient';
 import { paperDoiUrl, paperPmidUrl, paperUrl } from '@/lib/routing';
@@ -13,7 +13,7 @@ import { GraduationCap, TrendingUp, Clock, Flame, AlertCircle, X, ExternalLink, 
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import Header from '@/components/Header';
+import Header from '@/components/layout/Header';
 import { getTier, type Tier } from '@/lib/account';
 
 export default function HomePage() {

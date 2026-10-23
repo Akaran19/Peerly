@@ -7,7 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { isValidDOI, normalizeDOI } from '@/lib/doi';
 import { paperDoiUrl, paperPmidUrl, paperUrl } from '@/lib/routing';
 import { dataClient } from '@/lib/dataClient';
-import { UpgradeGuard, ProBadge } from '@/components/UpgradeGuard';
+import { UpgradeGuard, ProBadge } from '@/components/account/UpgradeGuard';
 import { type Tier } from '@/lib/tier';
 import { toast } from '@/hooks/use-toast';
 

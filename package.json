@@ -9,8 +9,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "load-test": "artillery run load-test.yml",
-    "load-test:report": "artillery run --output report.json load-test.yml && artillery report report.json"
+    "load-test": "artillery run scripts/load-test.yml",
+    "load-test:report": "artillery run --output report.json scripts/load-test.yml && artillery report report.json"
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.46.0",

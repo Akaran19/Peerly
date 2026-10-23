@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Check, Copy, FileText, Globe, Lock, LockOpen } from 'lucide-react';
-import CiteDialog from '@/components/CiteDialog';
+import CiteDialog from '@/components/paper/CiteDialog';
 import { formatDOIUrl } from '@/lib/doi';
-import { OAStatus, OpenAccessLink } from '@/lib/enrichment';
+import { OAStatus, OpenAccessLink } from '@/lib/api/enrichment';
 
 const OA_STATUS: Record<OAStatus, { label: string; hint: string; className: string }> = {
   diamond: {

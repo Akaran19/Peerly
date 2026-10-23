@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react';
 import { Shelf, UserPaper, Paper } from '@/types';
 import { dataClient } from '@/lib/dataClient';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PaperCard } from './PaperCard';
+import { PaperCard } from '@/components/paper/PaperCard';
 import { Button } from '@/components/ui/button';
 import { BookOpen, Eye, CheckCircle2, Plus, Sparkles, Download, Edit, CheckSquare, Square, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { GuestStorage } from '@/lib/guestStorage';
 import { toast } from '@/hooks/use-toast';
-import { UpgradeGuard, ProBadge } from '@/components/UpgradeGuard';
+import { UpgradeGuard, ProBadge } from '@/components/account/UpgradeGuard';
 import { type Tier } from '@/lib/tier';
 import {
   Dialog,
