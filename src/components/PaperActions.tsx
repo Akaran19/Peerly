@@ -29,9 +29,11 @@ interface PaperActionsProps {
   };
   onUpdate?: (userPaper: UserPaper) => void;
   tier?: Tier;
+  // The paper page shows DOI, citation and link actions in its own access strip
+  showDoiActions?: boolean;
 }
 
-export function PaperActions({ paperId, paper, onUpdate, tier = 'free' }: PaperActionsProps) {
+export function PaperActions({ paperId, paper, onUpdate, tier = 'free', showDoiActions = true }: PaperActionsProps) {
   const { user, isGuest, signInWithGoogle } = useAuth();
   const [userPaper, setUserPaper] = useState<UserPaper | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -237,7 +239,7 @@ export function PaperActions({ paperId, paper, onUpdate, tier = 'free' }: PaperA
 
           <div className="space-y-6">
             {/* DOI Actions */}
-            {paper && (
+            {paper && showDoiActions && (
               <div className="space-y-3">
                 <h3 className="font-semibold text-sm">DOI Actions</h3>
                 <div className="flex gap-2">
@@ -415,7 +417,7 @@ export function PaperActions({ paperId, paper, onUpdate, tier = 'free' }: PaperA
       <Card className="p-6 w-full max-w-sm space-y-6">
         <div className="space-y-6">
           {/* DOI Actions */}
-          {paper && (
+          {paper && showDoiActions && (
             <div className="space-y-3">
               <h3 className="font-semibold text-sm">DOI Actions</h3>
               <div className="flex gap-2">

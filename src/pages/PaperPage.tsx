@@ -9,12 +9,21 @@ import { trackPaperView } from '@/lib/analytics';
 import { PaperActions } from '@/components/PaperActions';
 import { AggregateStats } from '@/components/AggregateStats';
 import ReviewsCard from '@/components/ReviewsCard';
-import { Calendar, Users, ExternalLink, BookOpen, TrendingUp, FileText, Globe, RefreshCw, Loader2 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { getPaperByDOI, extractPaperMetadata, DisplayPaperMetadata } from '@/lib/crossref';
+import { RefreshCw, Loader2 } from 'lucide-react';
+import { DisplayPaperMetadata } from '@/lib/crossref';
 import Header from '@/components/Header';
 import { getTier } from '@/lib/account';
 import { type Tier } from '@/lib/tier';
+import { cleanAbstract, findOpenAccess, getPaperProfile, OpenAccessLink, PaperProfile } from '@/lib/enrichment';
+import PaperStatusBanner from '@/components/PaperStatusBanner';
+import PaperByline from '@/components/PaperByline';
+import PaperAccess from '@/components/PaperAccess';
+import PaperImpact from '@/components/PaperImpact';
+import PaperVenue from '@/components/PaperVenue';
+import RelatedPapers from '@/components/RelatedPapers';
+
+// Staggered entrance for the title-page sections
+const reveal = (step: number) => ({ '--reveal-delay': `${step * 70}ms` } as React.CSSProperties);
 
 export default function PaperPage() {
   const params = useParams();
@@ -31,12 +40,37 @@ export default function PaperPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tier, setTier] = useState<Tier>('free');
+  const [openAccess, setOpenAccess] = useState<OpenAccessLink | null>(null);
+  const [profile, setProfile] = useState<PaperProfile | null>(null);
 
-  // Helper function to generate Google Scholar URL for author search
-  const getGoogleScholarUrl = (authorName: string): string => {
-    const encodedAuthor = encodeURIComponent(`"${authorName}"`);
-    return `https://scholar.google.com/scholar?q=author:${encodedAuthor}`;
-  };
+  const paperDoi = paper?.doi;
+  const storedPdfUrl = richMetadata?.pdfUrl;
+
+  // Authors, affiliations, impact, venue and related works from a single free OpenAlex lookup
+  useEffect(() => {
+    setProfile(null);
+    if (!paperDoi) return;
+    let cancelled = false;
+    getPaperProfile(paperDoi).then(p => {
+      if (!cancelled) setProfile(p);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [paperDoi]);
+
+  // Look for a free legal copy only when we don't already have a PDF link
+  useEffect(() => {
+    setOpenAccess(null);
+    if (!paperDoi || storedPdfUrl) return;
+    let cancelled = false;
+    findOpenAccess(paperDoi).then(link => {
+      if (!cancelled) setOpenAccess(link);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [paperDoi, storedPdfUrl]);
 
   useEffect(() => {
     // Check if paper data was passed via location state
@@ -270,6 +304,14 @@ export default function PaperPage() {
     );
   }
 
+  const abstract = cleanAbstract(richMetadata?.abstract || paper.abstract);
+  const venueName = richMetadata?.journal || richMetadata?.conference || paper.journal || paper.conference;
+  const publishedLabel = richMetadata?.publishedDate
+    ? new Date(richMetadata.publishedDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+    : (richMetadata?.year || paper.year)?.toString();
+  const typeLabel = (richMetadata?.type || paper.type)?.replace(/[-_]/g, ' ');
+  const kicker = [typeLabel, venueName, publishedLabel].filter((part): part is string => !!part);
+
   return (
     <>
       <Helmet>
@@ -308,210 +350,153 @@ export default function PaperPage() {
       <div className="page-wrapper">
         <Header />
         <main className="page-container">
-        {/* Navigation */}
-        <div className="mb-6">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
-          >
-            ← Back to search
-          </Link>
-        </div>
+          <nav className="mb-8 flex items-center justify-between">
+            <Link
+              to="/"
+              className="font-ident text-[11px] uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:text-primary"
+            >
+              ← Back to search
+            </Link>
+            <button
+              onClick={handleRefreshMetadata}
+              disabled={isRefreshing}
+              className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-50"
+              title="Refresh metadata from multiple APIs"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">{isRefreshing ? 'Refreshing…' : 'Refresh data'}</span>
+            </button>
+          </nav>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Title and Metadata */}
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-4">
-                <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold leading-tight">
-                  {paper.title}
-                </h1>
-                <button
-                  onClick={handleRefreshMetadata}
-                  disabled={isRefreshing}
-                  className="flex items-center gap-2 px-3 py-2 text-sm bg-secondary hover:bg-secondary/80 disabled:opacity-50 rounded-md transition-colors self-start sm:self-auto"
-                  title="Refresh metadata from multiple APIs"
-                >
-                  <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                  <span className="hidden sm:inline">{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
-                </button>
+          {/* Mobile order: title page, library actions, article body, insights.
+              On desktop the actions and insights share the right column. */}
+          <div className="grid grid-cols-1 gap-x-14 lg:grid-cols-[minmax(0,1fr)_320px] lg:grid-rows-[auto_auto_1fr]">
+            <header className="paper-masthead min-w-0 space-y-5 pb-10 lg:col-start-1 lg:row-start-1">
+              <PaperStatusBanner doi={paper.doi} />
+
+              <p className="paper-kicker paper-reveal flex flex-wrap items-center gap-x-2 gap-y-1" style={reveal(0)}>
+                {kicker.map((part, i) => (
+                  <span key={part} className="flex items-center gap-2">
+                    {i > 0 && <span className="h-px w-4 bg-muted-foreground/40" aria-hidden />}
+                    {part}
+                  </span>
+                ))}
+              </p>
+
+              <h1
+                className="paper-reveal text-balance font-editorial text-[2rem] font-medium leading-[1.08] tracking-[-0.015em] sm:text-4xl md:text-[2.9rem]"
+                style={reveal(1)}
+              >
+                {paper.title}
+              </h1>
+
+              <div className="paper-reveal" style={reveal(2)}>
+                <PaperByline
+                  authors={profile?.authors}
+                  affiliations={profile?.affiliations}
+                  fallbackNames={richMetadata?.authors || paper.authors || []}
+                />
+              </div>
+
+              <div className="paper-reveal space-y-4" style={reveal(3)}>
+                <div className="paper-rule" />
+                <PaperAccess
+                  doi={paper.doi}
+                  oaStatus={profile?.oaStatus}
+                  pdfUrl={richMetadata?.pdfUrl}
+                  htmlUrl={richMetadata?.htmlUrl}
+                  openAccess={openAccess}
+                />
               </div>
 
               {isLoadingRichData && (
-                <div className="text-sm text-muted-foreground flex items-center gap-2">
-                  <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full"></div>
-                  Loading additional details...
-                </div>
+                <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading additional details…
+                </p>
               )}
+            </header>
 
-              <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                {/* Authors */}
-                {(richMetadata?.authors && richMetadata.authors.length > 0) && (
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4" />
-                    <div className="flex flex-wrap gap-1">
-                      {richMetadata.authors.map((author: string, index: number) => (
-                        <span key={index}>
-                          <a
-                            href={getGoogleScholarUrl(author)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-muted-foreground hover:text-primary transition-colors underline decoration-transparent hover:decoration-current"
-                            title={`Search for ${author}'s publications on Google Scholar`}
-                          >
-                            {author}
-                          </a>
-                          {index < richMetadata.authors.length - 1 && <span className="text-muted-foreground">, </span>}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Publication Date */}
-                {richMetadata?.publishedDate ? (
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    <span>{new Date(richMetadata.publishedDate).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric'
-                    })}</span>
-                  </div>
-                ) : paper.year ? (
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    <span>{paper.year}</span>
-                  </div>
-                ) : null}
-
-                {/* References Count */}
-                {richMetadata?.referencesCount && (
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="w-4 h-4" />
-                    <span>{richMetadata.referencesCount} references</span>
-                  </div>
-                )}
-
-                {/* Citation Count */}
-                {richMetadata?.citationCount && (
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4" />
-                    <span>{richMetadata.citationCount} citations</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-4">
-                {/* Journal or Conference */}
-                {(richMetadata?.journal || richMetadata?.conference) && (
-                  <Badge variant="secondary" className="hover:bg-primary/10 transition-colors">
-                    {richMetadata.journal || richMetadata.conference}
-                  </Badge>
-                )}
-
-                {/* Publisher */}
-                {richMetadata?.publisher && (
-                  <Badge variant="outline">
-                    {richMetadata.publisher}
-                  </Badge>
-                )}
-
-                {/* Publication Type */}
-                {richMetadata?.type && (
-                  <Badge variant="outline">
-                    {richMetadata.type.replace('-', ' ')}
-                  </Badge>
-                )}
-
-                {/* DOI Link */}
-                <a
-                  href={formatDOIUrl(paper.doi)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  {paper.doi}
-                </a>
-
-                {/* PDF Link */}
-                {richMetadata?.pdfUrl && (
-                  <a
-                    href={richMetadata.pdfUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline"
-                  >
-                    <FileText className="w-4 h-4" />
-                    PDF
-                  </a>
-                )}
-
-                {/* HTML Link */}
-                {richMetadata?.htmlUrl && (
-                  <a
-                    href={richMetadata.htmlUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-sm text-green-600 hover:underline"
-                  >
-                    <Globe className="w-4 h-4" />
-                    HTML
-                  </a>
-                )}
-              </div>
-
-              {/* Additional Metadata */}
-              <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-                {/* No additional metadata to display after optimization */}
-              </div>
-
-              {aggregates && (
-                <div className="py-4 border-y">
+            <div className="paper-reveal space-y-4 pb-10 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:pb-5" style={reveal(2)}>
+              <section className="paper-panel space-y-3 [&_button]:min-h-0 [&_button]:min-w-0" aria-labelledby="readers-heading">
+                <h2 id="readers-heading" className="paper-section-label">On Peerly</h2>
+                {aggregates ? (
                   <AggregateStats aggregates={aggregates} />
-                </div>
-              )}
+                ) : (
+                  <div className="h-5 w-32 animate-pulse rounded bg-muted" />
+                )}
+              </section>
+
+              <PaperActions
+                paperId={paper.id}
+                paper={{
+                  doi: paper.doi,
+                  title: paper.title,
+                  authors: richMetadata?.authors || paper.authors || [],
+                  year: richMetadata?.year || paper.year,
+                  journal: richMetadata?.journal || paper.journal,
+                  conference: richMetadata?.conference || paper.conference,
+                  publisher: richMetadata?.publisher || paper.publisher
+                }}
+                onUpdate={handlePaperUpdate}
+                tier={tier}
+                showDoiActions={false}
+              />
             </div>
 
-            {/* Abstract */}
-            {(richMetadata?.abstract || paper.abstract) && (
-              <>
-                <div className="academic-card p-6">
-                  <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                    <BookOpen className="w-5 h-5" />
-                    Abstract
-                  </h2>
-                  <p className="text-base-academic md:text-base-academic-md leading-relaxed text-muted-foreground">
-                    {richMetadata?.abstract || paper.abstract}
+            <article className="min-w-0 space-y-8 pb-10 lg:col-start-1 lg:row-span-2 lg:row-start-2">
+              {abstract && (
+                <section className="paper-reveal space-y-4" style={reveal(4)} aria-labelledby="abstract-heading">
+                  <h2 id="abstract-heading" className="paper-section-label">Abstract</h2>
+                  <p className="paper-dropcap font-editorial text-[17px] leading-[1.75] text-foreground/85 md:text-[18.5px]">
+                    {abstract}
                   </p>
-                </div>
-                <ReviewsCard paperId={paper.id} limit={3} />
-              </>
-            )}
-          </div>
+                </section>
+              )}
 
-          {/* Sidebar Actions */}
-          <div className="lg:static lg:bottom-auto lg:left-auto lg:right-auto z-50 bg-background/95 backdrop-blur-sm border-t lg:border-t-0 p-4 lg:p-0 lg:bg-transparent lg:backdrop-blur-none lg:border-0">
-            <PaperActions
-              paperId={paper.id}
-              paper={{
-                doi: paper.doi,
-                title: paper.title,
-                authors: richMetadata?.authors || paper.authors || [],
-                year: richMetadata?.year || paper.year,
-                journal: richMetadata?.journal || paper.journal,
-                conference: richMetadata?.conference || paper.conference,
-                publisher: richMetadata?.publisher || paper.publisher
-              }}
-              onUpdate={handlePaperUpdate}
-              tier={tier}
-            />
+              {(profile?.topics.length || profile?.keywords.length) ? (
+                <section className="paper-reveal space-y-3" style={reveal(5)} aria-labelledby="topics-heading">
+                  <h2 id="topics-heading" className="paper-section-label">Topics</h2>
+                  <div className="flex flex-wrap gap-2">
+                    {profile.topics.map(t => (
+                      <span key={t.name} className="rounded-full border border-primary/25 bg-primary/5 px-3 py-1 text-xs">
+                        {t.field && <span className="text-muted-foreground">{t.field} › </span>}
+                        <span className="font-medium text-foreground">{t.name}</span>
+                      </span>
+                    ))}
+                    {profile.keywords.map(k => (
+                      <span key={k} className="rounded-full border px-3 py-1 text-xs text-muted-foreground">
+                        {k}
+                      </span>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+
+              <div className="paper-reveal" style={reveal(6)}>
+                <ReviewsCard paperId={paper.id} limit={3} />
+              </div>
+
+              {profile && (profile.openAlexId || profile.relatedWorkIds.length > 0) && <RelatedPapers profile={profile} />}
+            </article>
+
+            <aside className="space-y-5 lg:col-start-2 lg:row-start-3">
+              <div className="paper-reveal" style={reveal(3)}>
+                <PaperImpact profile={profile} fallbackCount={richMetadata?.citationCount ?? paper.citationCount} />
+              </div>
+
+              <div className="paper-reveal" style={reveal(4)}>
+                <PaperVenue
+                  venue={profile?.venue}
+                  fallbackName={richMetadata?.journal || richMetadata?.conference || paper.journal || paper.conference}
+                  fallbackPublisher={richMetadata?.publisher || paper.publisher}
+                  type={richMetadata?.type || paper.type}
+                />
+              </div>
+            </aside>
           </div>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
     </>
   );
 }

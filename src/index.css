@@ -233,3 +233,81 @@ All colors MUST be HSL for consistent theming.
     100% { width: 100%; }
   }
 }
+/* Paper page: journal title-page styling */
+@layer components {
+  .paper-kicker {
+    @apply font-ident text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground;
+  }
+
+  /* Double hairline under the masthead, like a printed journal */
+  .paper-rule {
+    @apply h-[5px] border-y border-foreground/15;
+  }
+
+  .paper-section-label {
+    @apply font-ident text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground flex items-center gap-3 after:content-[''] after:h-px after:flex-1 after:bg-border;
+  }
+
+  .paper-dropcap::first-letter {
+    @apply font-editorial float-left mr-2 mt-1 text-[3.4em] font-semibold leading-[0.8] text-primary;
+  }
+
+  .paper-panel {
+    @apply rounded-xl border bg-card/80 p-5 shadow-[0_1px_0_hsl(var(--border))] backdrop-blur-sm;
+  }
+
+  /* Faint dot grid behind the masthead */
+  .paper-masthead {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .paper-masthead::before {
+    content: '';
+    position: absolute;
+    inset: -2.5rem -1rem auto -1rem;
+    height: 16rem;
+    z-index: -1;
+    pointer-events: none;
+    background-image: radial-gradient(hsl(var(--foreground) / 0.08) 1px, transparent 1px);
+    background-size: 14px 14px;
+    -webkit-mask-image: radial-gradient(ellipse 70% 100% at 30% 0%, black 30%, transparent 75%);
+    mask-image: radial-gradient(ellipse 70% 100% at 30% 0%, black 30%, transparent 75%);
+  }
+
+  /* Hazard band for retracted papers */
+  .paper-hazard {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      hsl(var(--destructive) / 0.10) 0 10px,
+      transparent 10px 20px
+    );
+  }
+
+  @keyframes paper-reveal {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  .paper-reveal {
+    animation: paper-reveal 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation-delay: var(--reveal-delay, 0ms);
+  }
+
+  @keyframes paper-bar {
+    from { transform: scaleY(0); }
+    to { transform: scaleY(1); }
+  }
+
+  .paper-bar {
+    transform-origin: bottom;
+    animation: paper-bar 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .paper-reveal,
+    .paper-bar {
+      animation: none;
+    }
+  }
+}

@@ -64,6 +64,11 @@ export default {
 					read: 'hsl(var(--shelf-read))'
 				}
 			},
+			fontFamily: {
+				// Paper pages read like a journal title page
+				editorial: ['Newsreader', 'Georgia', 'Cambria', 'serif'],
+				ident: ['"Martian Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace']
+			},
 			fontSize: {
 				'base-academic': ['15px', { lineHeight: '1.75' }],
 				'base-academic-md': ['16px', { lineHeight: '1.75' }],

@@ -4,6 +4,7 @@
 
 import { Paper, Author } from '@/types';
 import { normalizeDOI } from './doi';
+import { withMailto } from './enrichment';
 
 // Author interface for API responses (different from database Author)
 interface ApiAuthor {
@@ -360,7 +361,7 @@ export async function getPaperByDOI(doiRaw: string): Promise<MultiApiPaper> {
     }),
 
     // CrossRef (bibliographic fallback)
-    fetch(`https://api.crossref.org/works/${encodeURIComponent(doi)}`, {
+    fetch(withMailto(`https://api.crossref.org/works/${encodeURIComponent(doi)}`), {
       headers: { "User-Agent": UA }
     }).then(async r => {
       console.log('crossref: CrossRef response status:', r.status, 'for DOI:', doi);
@@ -671,7 +672,7 @@ export async function searchPapersByKeywords(query: string, limit = 20): Promise
 
     // Search CrossRef first (good for academic papers)
     const crossRefResponse = await fetch(
-      `https://api.crossref.org/works?query=${encodeURIComponent(crossRefQuery)}&rows=${limit}&sort=relevance`,
+      withMailto(`https://api.crossref.org/works?query=${encodeURIComponent(crossRefQuery)}&rows=${limit}&sort=relevance`),
       { headers: { "User-Agent": UA } }
     );
 
